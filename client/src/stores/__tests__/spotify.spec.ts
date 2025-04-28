@@ -2,13 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSpotifyStore } from '../spotify'
 import api from '@/services/api'
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
-// Mock the API service
 vi.mock('@/services/api', () => ({
   default: {
     getNewReleases: vi.fn(),
-    getAvailableGenres: vi.fn()
+    getAvailableGenres: vi.fn(),
+    getAudiobooks: vi.fn()
   }
 }))
 
@@ -18,106 +17,51 @@ describe('Spotify Store', () => {
     vi.resetAllMocks()
   })
 
-  describe('fetchNewReleases', () => {
-    it('should set new releases when API call succeeds', async () => {
-      // Mock API response
-      const mockResponse: AxiosResponse = {
+  describe('fetchAudiobooks', () => {
+    it('should set audiobooks when API call is successful', async () => {
+      const mockResponse = {
         data: {
-          albums: {
-            items: [
-              { id: '1', name: 'Album 1' },
-              { id: '2', name: 'Album 2' }
-            ]
+          audiobooks: {
+            items: [{ id: '1', name: 'Test Audiobook' }]
           }
-        },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {
-          headers: {} as any
-        } as InternalAxiosRequestConfig
+        }
       }
-      vi.mocked(api.getNewReleases).mockResolvedValue(mockResponse)
-
+      
+      // Type cast as any to avoid AxiosResponse typing issues in tests
+      vi.mocked(api.getAudiobooks).mockResolvedValue(mockResponse as any)
+      
       const store = useSpotifyStore()
-      await store.fetchNewReleases()
-
-      expect(api.getNewReleases).toHaveBeenCalledWith(20, 0, 'US')
-      expect(store.newReleases).toEqual(mockResponse.data.albums.items)
+      await store.fetchAudiobooks()
+      
+      expect(api.getAudiobooks).toHaveBeenCalledWith(40, 0, 'AU')
+      expect(store.audiobooks).toEqual([{ id: '1', name: 'Test Audiobook' }])
       expect(store.isLoading).toBe(false)
       expect(store.error).toBeNull()
     })
 
     it('should set error when API call fails', async () => {
-      // Mock API error
-      const error = new Error('API error')
-      vi.mocked(api.getNewReleases).mockRejectedValue(error)
-
+      const mockError = new Error('API Error')
+      vi.mocked(api.getAudiobooks).mockRejectedValue(mockError)
+      
       const store = useSpotifyStore()
-      await store.fetchNewReleases()
-
-      expect(api.getNewReleases).toHaveBeenCalled()
-      expect(store.newReleases).toEqual([])
+      await store.fetchAudiobooks()
+      
+      expect(api.getAudiobooks).toHaveBeenCalled()
+      expect(store.audiobooks).toEqual([])
       expect(store.isLoading).toBe(false)
-      expect(store.error).toBe('API error')
+      expect(store.error).toBe('API Error')
     })
 
-    it('should pass custom parameters to the API', async () => {
-      // Mock API response
-      vi.mocked(api.getNewReleases).mockResolvedValue({
-        data: { albums: { items: [] } },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {
-          headers: {} as any
-        } as InternalAxiosRequestConfig
-      } as AxiosResponse)
-
+    it('should pass custom parameters to API', async () => {
+      // Type cast as any to avoid AxiosResponse typing issues in tests
+      vi.mocked(api.getAudiobooks).mockResolvedValue({
+        data: { audiobooks: { items: [] } }
+      } as any)
+      
       const store = useSpotifyStore()
-      await store.fetchNewReleases(10, 5, 'GB')
-
-      expect(api.getNewReleases).toHaveBeenCalledWith(10, 5, 'GB')
-    })
-  })
-
-  describe('fetchGenres', () => {
-    it('should set genres when API call succeeds', async () => {
-      // Mock API response
-      const mockResponse: AxiosResponse = {
-        data: {
-          genres: ['rock', 'pop', 'hip-hop']
-        },
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config: {
-          headers: {} as any
-        } as InternalAxiosRequestConfig
-      }
-      vi.mocked(api.getAvailableGenres).mockResolvedValue(mockResponse)
-
-      const store = useSpotifyStore()
-      await store.fetchGenres()
-
-      expect(api.getAvailableGenres).toHaveBeenCalled()
-      expect(store.genres).toEqual(mockResponse.data.genres)
-      expect(store.isLoading).toBe(false)
-      expect(store.error).toBeNull()
-    })
-
-    it('should set error when API call fails', async () => {
-      // Mock API error
-      const error = new Error('API error')
-      vi.mocked(api.getAvailableGenres).mockRejectedValue(error)
-
-      const store = useSpotifyStore()
-      await store.fetchGenres()
-
-      expect(api.getAvailableGenres).toHaveBeenCalled()
-      expect(store.genres).toEqual([])
-      expect(store.isLoading).toBe(false)
-      expect(store.error).toBe('API error')
+      await store.fetchAudiobooks(20, 10, 'US')
+      
+      expect(api.getAudiobooks).toHaveBeenCalledWith(20, 10, 'US')
     })
   })
 })

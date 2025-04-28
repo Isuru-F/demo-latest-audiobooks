@@ -46,3 +46,47 @@ export interface NewReleasesResponse {
 export interface GenresResponse {
   genres: string[];
 }
+
+export interface Audiobook {
+  id: string;
+  name: string;
+  authors: Author[];
+  narrators: (string | NarratorObject)[];
+  description: string;
+  publisher: string;
+  images: {
+    url: string;
+    height: number;
+    width: number;
+  }[];
+  external_urls: {
+    spotify: string;
+  };
+  release_date: string;
+  media_type: string;
+  type: string;
+  uri: string;
+  total_chapters: number;
+  duration_ms: number;
+}
+
+export interface NarratorObject {
+  name: string;
+  [key: string]: any;
+}
+
+export interface Author {
+  name: string;
+}
+
+export interface AudiobooksResponse {
+  audiobooks: {
+    href: string;
+    items: Audiobook[];
+    limit: number;
+    next: string | null;
+    offset: number;
+    previous: string | null;
+    total: number;
+  };
+}

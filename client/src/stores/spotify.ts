@@ -2,10 +2,11 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { Ref } from 'vue';
 import api from '@/services/api';
-import type { Album, GenresResponse, NewReleasesResponse } from '@/types/spotify';
+import type { Album, Audiobook, GenresResponse, NewReleasesResponse, AudiobooksResponse } from '@/types/spotify';
 
 export const useSpotifyStore = defineStore('spotify', () => {
   const newReleases: Ref<Album[]> = ref([]);
+  const audiobooks: Ref<Audiobook[]> = ref([]);
   const genres: Ref<string[]> = ref([]);
   const isLoading: Ref<boolean> = ref(false);
   const error: Ref<string | null> = ref(null);
@@ -40,12 +41,29 @@ export const useSpotifyStore = defineStore('spotify', () => {
     }
   }
 
+  async function fetchAudiobooks(limit = 40, offset = 0, market = 'AU') {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await api.getAudiobooks(limit, offset, market);
+      const data = response.data as AudiobooksResponse;
+      audiobooks.value = data.audiobooks.items;
+    } catch (err: any) {
+      error.value = err.message || 'Failed to fetch audiobooks';
+      console.error('Error fetching audiobooks:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     newReleases,
+    audiobooks,
     genres,
     isLoading,
     error,
     fetchNewReleases,
-    fetchGenres
+    fetchGenres,
+    fetchAudiobooks
   };
 });

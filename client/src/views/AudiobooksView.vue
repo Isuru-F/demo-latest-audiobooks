@@ -1,39 +1,44 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
-import AlbumCard from '@/components/AlbumCard.vue';
-import FeaturedCarousel from '@/components/FeaturedCarousel.vue';
+import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
-const filteredReleases = computed(() => {
+const filteredAudiobooks = computed(() => {
   if (!searchQuery.value.trim()) {
-    return spotifyStore.newReleases;
+    return spotifyStore.audiobooks;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.newReleases.filter(album => {
-    // Search by album name
-    if (album.name.toLowerCase().includes(query)) {
+  return spotifyStore.audiobooks.filter(audiobook => {
+    // Search by audiobook name
+    if (audiobook.name.toLowerCase().includes(query)) {
       return true;
     }
     
-    // Search by artist name
-    const artistMatch = album.artists.some(artist => 
-      artist.name.toLowerCase().includes(query)
+    // Search by author name
+    const authorMatch = audiobook.authors.some(author => 
+      author.name.toLowerCase().includes(query)
     );
     
-    return artistMatch;
+    // Search by narrator
+    const narratorMatch = audiobook.narrators?.some(narrator => {
+      if (typeof narrator === 'string') {
+        return narrator.toLowerCase().includes(query);
+      } else if (narrator && typeof narrator === 'object') {
+        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+      }
+      return false;
+    });
+    
+    return authorMatch || narratorMatch;
   });
 });
 
-const featuredAlbums = computed(() => {
-  return spotifyStore.newReleases.slice(0, 3);
-});
-
 onMounted(() => {
-  spotifyStore.fetchNewReleases();
+  spotifyStore.fetchAudiobooks();
 });
 </script>
 
@@ -41,26 +46,19 @@ onMounted(() => {
   <main>
     <section class="hero">
       <div class="hero-content">
-        <h1>Latest Music Releases</h1>
-        <p>Explore new albums from your favorite artists alongside our audiobook collection</p>
+        <h1>Welcome to Audiobook Hub</h1>
+        <p>Your destination for the latest audiobook releases and bestsellers</p>
       </div>
     </section>
 
-    <section class="featured" v-if="!spotifyStore.isLoading && !spotifyStore.error && featuredAlbums.length > 0">
-      <div class="featured-header">
-        <h2>Featured Releases</h2>
-      </div>
-      <FeaturedCarousel :albums="featuredAlbums" />
-    </section>
-
-    <section class="releases">
-      <div class="releases-header">
-        <h2>Latest Releases</h2>
+    <section class="audiobooks">
+      <div class="audiobooks-header">
+        <h2>Latest Audiobooks</h2>
         <div class="search-container">
           <input 
             type="text" 
             v-model="searchQuery" 
-            placeholder="Search albums or artists..." 
+            placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
         </div>
@@ -68,19 +66,19 @@ onMounted(() => {
       
       <div v-if="spotifyStore.isLoading" class="loading">
         <div class="spinner"></div>
-        <p>Loading new releases...</p>
+        <p>Loading audiobooks...</p>
       </div>
       <div v-else-if="spotifyStore.error" class="error">
         <p>{{ spotifyStore.error }}</p>
-        <button @click="spotifyStore.fetchNewReleases()">Try Again</button>
+        <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredReleases.length === 0" class="no-results">No albums match your search.</p>
-        <div v-else class="album-grid">
-          <AlbumCard 
-            v-for="album in filteredReleases" 
-            :key="album.id" 
-            :album="album" 
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <div v-else class="audiobook-grid">
+          <AudiobookCard 
+            v-for="audiobook in filteredAudiobooks" 
+            :key="audiobook.id" 
+            :audiobook="audiobook" 
           />
         </div>
       </div>
@@ -117,17 +115,13 @@ onMounted(() => {
   opacity: 0.9;
 }
 
-.featured, .releases {
+.audiobooks {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.featured {
-  margin-bottom: 40px;
-}
-
-.featured-header, .releases-header {
+.audiobooks-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -136,7 +130,7 @@ onMounted(() => {
   gap: 20px;
 }
 
-.featured h2, .releases h2 {
+.audiobooks h2 {
   font-size: 32px;
   color: #2a2d3e;
   position: relative;
@@ -144,7 +138,7 @@ onMounted(() => {
   margin: 0;
 }
 
-.featured h2::after, .releases h2::after {
+.audiobooks h2::after {
   content: '';
   position: absolute;
   bottom: -8px;
@@ -178,7 +172,7 @@ onMounted(() => {
   background: #ffffff;
 }
 
-.album-grid {
+.audiobook-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 30px;
@@ -186,7 +180,7 @@ onMounted(() => {
 }
 
 @media (min-width: 1200px) {
-  .album-grid {
+  .audiobook-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 }

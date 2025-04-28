@@ -1,27 +1,34 @@
 const spotifyService = require('../services/spotify.service');
 
-const getNewReleases = async (req, res, next) => {
-  try {
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = parseInt(req.query.offset) || 0;
-    const country = req.query.country || 'US';
-    const releases = await spotifyService.getNewReleases(limit, offset, country);
-    res.json(releases);
-  } catch (error) {
-    next(error);
+class SpotifyController {
+  async getNewReleases(req, res, next) {
+    try {
+      const { limit = 20, offset = 0, country = 'US' } = req.query;
+      const data = await spotifyService.getNewReleases(limit, offset, country);
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
-const getAvailableGenres = async (req, res, next) => {
-  try {
-    const genres = await spotifyService.getAvailableGenres();
-    res.json(genres);
-  } catch (error) {
-    next(error);
+  async getGenres(req, res, next) {
+    try {
+      const data = await spotifyService.getGenres();
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
-module.exports = {
-  getNewReleases,
-  getAvailableGenres
-};
+  async getAudiobooks(req, res, next) {
+    try {
+      const { limit = 40, offset = 0, market = 'AU' } = req.query;
+      const data = await spotifyService.getAudiobooks(limit, offset, market);
+      res.json(data);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+
+module.exports = new SpotifyController();

@@ -5,10 +5,11 @@ import { RouterLink, RouterView } from 'vue-router'
 <template>
   <header>
     <div class="logo">
-      <h1>Jukebox</h1>
+      <h1>Audiobook Hub</h1>
     </div>
     <nav>
-      <RouterLink to="/">New Releases</RouterLink>
+      <RouterLink to="/">Audiobooks</RouterLink>
+      <RouterLink to="/latest-music">Latest Music</RouterLink>
       <RouterLink to="/genres">Genres</RouterLink>
     </nav>
   </header>
@@ -16,7 +17,7 @@ import { RouterLink, RouterView } from 'vue-router'
   <RouterView />
 
   <footer>
-    <p>&copy; {{ new Date().getFullYear() }} Jukebox - A modern music discovery app</p>
+    <p>&copy; {{ new Date().getFullYear() }} Audiobook Hub - Your audiobook discovery platform</p>
   </footer>
 </template>
 

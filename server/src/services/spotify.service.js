@@ -4,62 +4,95 @@ class SpotifyService {
   constructor() {
     this.clientId = process.env.SPOTIFY_CLIENT_ID;
     this.clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-    this.accessToken = null;
-    this.tokenExpiry = null;
     this.baseUrl = 'https://api.spotify.com/v1';
+    this.authToken = null;
+    this.tokenExpiration = null;
   }
 
-  async getAccessToken() {
+  async getToken() {
     // Return existing token if it's still valid
-    if (this.accessToken && this.tokenExpiry > Date.now()) {
-      return this.accessToken;
+    if (this.authToken && this.tokenExpiration > Date.now()) {
+      return this.authToken;
     }
 
     try {
-      const tokenResponse = await axios({
+      const response = await axios({
         method: 'post',
         url: 'https://accounts.spotify.com/api/token',
+        params: {
+          grant_type: 'client_credentials'
+        },
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
-        },
-        data: 'grant_type=client_credentials'
+          'Authorization': 'Basic ' + Buffer.from(this.clientId + ':' + this.clientSecret).toString('base64')
+        }
       });
 
-      this.accessToken = tokenResponse.data.access_token;
-      // Set expiry time (token is valid for 3600 seconds)
-      this.tokenExpiry = Date.now() + (tokenResponse.data.expires_in * 1000);
-      return this.accessToken;
+      this.authToken = response.data.access_token;
+      // Set expiration time (token expires in 3600 seconds)
+      this.tokenExpiration = Date.now() + (response.data.expires_in * 1000);
+      
+      return this.authToken;
     } catch (error) {
-      console.error('Error getting Spotify access token:', error.message);
-      throw new Error('Failed to get Spotify access token');
-    }
-  }
-
-  async request(endpoint, method = 'GET', params = {}) {
-    try {
-      const token = await this.getAccessToken();
-      const response = await axios({
-        method,
-        url: `${this.baseUrl}${endpoint}`,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        params
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`Error making Spotify API request to ${endpoint}:`, error.message);
-      throw error;
+      console.error('Error getting Spotify token:', error);
+      throw new Error('Failed to authenticate with Spotify');
     }
   }
 
   async getNewReleases(limit = 20, offset = 0, country = 'US') {
-    return this.request('/browse/new-releases', 'GET', { limit, offset, country });
+    try {
+      const token = await this.getToken();
+      const response = await axios({
+        method: 'get',
+        url: `${this.baseUrl}/browse/new-releases`,
+        params: { limit, offset, country },
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching new releases:', error);
+      throw new Error('Failed to fetch new releases from Spotify');
+    }
   }
 
-  async getAvailableGenres() {
-    return this.request('/recommendations/available-genre-seeds');
+  async getGenres() {
+    try {
+      const token = await this.getToken();
+      const response = await axios({
+        method: 'get',
+        url: `${this.baseUrl}/recommendations/available-genre-seeds`,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      return { genres: response.data.genres };
+    } catch (error) {
+      console.error('Error fetching genres:', error);
+      throw new Error('Failed to fetch genres from Spotify');
+    }
+  }
+
+  async getAudiobooks(limit = 40, offset = 0, market = 'AU') {
+    try {
+      const token = await this.getToken();
+      const response = await axios({
+        method: 'get',
+        url: `${this.baseUrl}/search`,
+        params: {
+          q: 'tag:new',
+          type: 'audiobook',
+          market,
+          limit,
+          offset
+        },
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching audiobooks:', error);
+      throw new Error('Failed to fetch audiobooks from Spotify');
+    }
   }
 }
 
