@@ -23,3 +23,6 @@
 - Server: Node.js/Express with Jest for testing
 - Error handling: Use try/catch blocks and appropriate error responses
 - Prefer async/await over promise chains
+
+## Verification Steps
+- Open Playwright and check any visual changes are applied successfully
