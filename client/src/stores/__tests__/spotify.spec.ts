@@ -28,7 +28,11 @@ describe('Spotify Store', () => {
               { id: '2', name: 'Album 2' }
             ]
           }
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {}
       }
       vi.mocked(api.getNewReleases).mockResolvedValue(mockResponse)
 
@@ -57,7 +61,13 @@ describe('Spotify Store', () => {
 
     it('should pass custom parameters to the API', async () => {
       // Mock API response
-      vi.mocked(api.getNewReleases).mockResolvedValue({ data: { albums: { items: [] } } })
+      vi.mocked(api.getNewReleases).mockResolvedValue({
+        data: { albums: { items: [] } },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {}
+      })
 
       const store = useSpotifyStore()
       await store.fetchNewReleases(10, 5, 'GB')
@@ -72,7 +82,11 @@ describe('Spotify Store', () => {
       const mockResponse = {
         data: {
           genres: ['rock', 'pop', 'hip-hop']
-        }
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {}
       }
       vi.mocked(api.getAvailableGenres).mockResolvedValue(mockResponse)
 
