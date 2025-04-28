@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSpotifyStore } from '../spotify'
 import api from '@/services/api'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 // Mock the API service
 vi.mock('@/services/api', () => ({
@@ -20,7 +21,7 @@ describe('Spotify Store', () => {
   describe('fetchNewReleases', () => {
     it('should set new releases when API call succeeds', async () => {
       // Mock API response
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           albums: {
             items: [
@@ -32,7 +33,9 @@ describe('Spotify Store', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {}
+        config: {
+          headers: {} as any
+        } as InternalAxiosRequestConfig
       }
       vi.mocked(api.getNewReleases).mockResolvedValue(mockResponse)
 
@@ -66,8 +69,10 @@ describe('Spotify Store', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {}
-      })
+        config: {
+          headers: {} as any
+        } as InternalAxiosRequestConfig
+      } as AxiosResponse)
 
       const store = useSpotifyStore()
       await store.fetchNewReleases(10, 5, 'GB')
@@ -79,14 +84,16 @@ describe('Spotify Store', () => {
   describe('fetchGenres', () => {
     it('should set genres when API call succeeds', async () => {
       // Mock API response
-      const mockResponse = {
+      const mockResponse: AxiosResponse = {
         data: {
           genres: ['rock', 'pop', 'hip-hop']
         },
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {}
+        config: {
+          headers: {} as any
+        } as InternalAxiosRequestConfig
       }
       vi.mocked(api.getAvailableGenres).mockResolvedValue(mockResponse)
 
