@@ -1,41 +1,41 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const isSearching = ref(false);
+const searchTimeout = ref<number | null>(null);
 
-const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+async function handleSearch() {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value);
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-      }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+  const query = searchQuery.value.trim();
+  
+  // If query is empty, fetch default audiobooks
+  if (!query) {
+    spotifyStore.fetchAudiobooks();
+    return;
+  }
+  
+  // Add debounce to avoid too many API calls
+  searchTimeout.value = setTimeout(async () => {
+    isSearching.value = true;
+    await spotifyStore.fetchAudiobooks(40, 0, 'AU', query);
+    isSearching.value = false;
+  }, 500) as unknown as number;
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  spotifyStore.fetchAudiobooks();
+}
+
+// Watch for changes to search query
+watch(searchQuery, handleSearch);
 
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
@@ -58,25 +58,33 @@ onMounted(() => {
           <input 
             type="text" 
             v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
+            placeholder="Search for audiobooks..." 
             class="search-input"
           />
+          <button 
+            v-if="searchQuery" 
+            @click="clearSearch" 
+            class="clear-button"
+            aria-label="Clear search"
+          >
+            ×
+          </button>
         </div>
       </div>
       
-      <div v-if="spotifyStore.isLoading" class="loading">
+      <div v-if="spotifyStore.isLoading || isSearching" class="loading">
         <div class="spinner"></div>
-        <p>Loading audiobooks...</p>
+        <p>{{ isSearching ? 'Searching...' : 'Loading audiobooks...' }}</p>
       </div>
       <div v-else-if="spotifyStore.error" class="error">
         <p>{{ spotifyStore.error }}</p>
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="spotifyStore.audiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
+            v-for="audiobook in spotifyStore.audiobooks" 
             :key="audiobook.id" 
             :audiobook="audiobook" 
           />
@@ -170,6 +178,36 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.search-container {
+  position: relative;
+}
+
+.clear-button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #6e7191;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.clear-button:focus {
+  outline: none;
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .audiobook-grid {

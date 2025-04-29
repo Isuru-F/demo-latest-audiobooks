@@ -22,8 +22,8 @@ class SpotifyController {
 
   async getAudiobooks(req, res, next) {
     try {
-      const { limit = 40, offset = 0, market = 'AU' } = req.query;
-      const data = await spotifyService.getAudiobooks(limit, offset, market);
+      const { limit = 40, offset = 0, market = 'AU', query = 'tag:new' } = req.query;
+      const data = await spotifyService.getAudiobooks(limit, offset, market, query);
       res.json(data);
     } catch (error) {
       next(error);

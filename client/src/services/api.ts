@@ -16,9 +16,9 @@ export default {
   getAvailableGenres() {
     return apiClient.get('/spotify/genres');
   },
-  getAudiobooks(limit = 40, offset = 0, market = 'AU') {
+  getAudiobooks(limit = 40, offset = 0, market = 'AU', query?: string) {
     return apiClient.get('/spotify/audiobooks', {
-      params: { limit, offset, market }
+      params: { limit, offset, market, query }
     });
-  }
+  },
 };

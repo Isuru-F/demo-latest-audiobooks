@@ -16,7 +16,7 @@ describe('SpotifyService', () => {
   });
 
   describe('getAudiobooks', () => {
-    it('should fetch audiobooks successfully', async () => {
+    it('should fetch audiobooks successfully with default query', async () => {
       // Mock audiobooks response
       const mockAudiobooksData = {
         audiobooks: {
@@ -46,6 +46,42 @@ describe('SpotifyService', () => {
         market: 'AU',
         limit: 40,
         offset: 0
+      });
+      expect(audiobooksCall.headers).toEqual({
+        'Authorization': 'Bearer mock-token'
+      });
+    });
+    
+    it('should fetch audiobooks with custom search query', async () => {
+      // Mock audiobooks response
+      const mockAudiobooksData = {
+        audiobooks: {
+          items: [
+            { id: '3', name: 'Harry Potter' },
+            { id: '4', name: 'Harry Potter 2' }
+          ]
+        }
+      };
+
+      // Set up axios mock for the second call
+      axios.mockResolvedValueOnce({
+        data: mockAudiobooksData
+      });
+
+      const result = await spotifyService.getAudiobooks(20, 5, 'US', 'harry potter');
+      
+      expect(result).toEqual(mockAudiobooksData);
+      expect(axios).toHaveBeenCalledTimes(2);
+      
+      // Verify the search parameters
+      const audiobooksCall = axios.mock.calls[1][0];
+      expect(audiobooksCall.url).toBe('https://api.spotify.com/v1/search');
+      expect(audiobooksCall.params).toEqual({
+        q: 'harry potter',
+        type: 'audiobook',
+        market: 'US',
+        limit: 20,
+        offset: 5
       });
       expect(audiobooksCall.headers).toEqual({
         'Authorization': 'Bearer mock-token'

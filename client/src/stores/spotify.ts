@@ -41,11 +41,11 @@ export const useSpotifyStore = defineStore('spotify', () => {
     }
   }
 
-  async function fetchAudiobooks(limit = 40, offset = 0, market = 'AU') {
+  async function fetchAudiobooks(limit = 40, offset = 0, market = 'AU', query?: string) {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await api.getAudiobooks(limit, offset, market);
+      const response = await api.getAudiobooks(limit, offset, market, query);
       const data = response.data as AudiobooksResponse;
       audiobooks.value = data.audiobooks.items;
     } catch (err: any) {

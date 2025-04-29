@@ -72,14 +72,14 @@ class SpotifyService {
     }
   }
 
-  async getAudiobooks(limit = 40, offset = 0, market = 'AU') {
+  async getAudiobooks(limit = 40, offset = 0, market = 'AU', query = 'tag:new') {
     try {
       const token = await this.getToken();
       const response = await axios({
         method: 'get',
         url: `${this.baseUrl}/search`,
         params: {
-          q: 'tag:new',
+          q: query,
           type: 'audiobook',
           market,
           limit,

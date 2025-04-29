@@ -33,7 +33,7 @@ describe('Spotify Store', () => {
       const store = useSpotifyStore()
       await store.fetchAudiobooks()
       
-      expect(api.getAudiobooks).toHaveBeenCalledWith(40, 0, 'AU')
+      expect(api.getAudiobooks).toHaveBeenCalledWith(40, 0, 'AU', undefined)
       expect(store.audiobooks).toEqual([{ id: '1', name: 'Test Audiobook' }])
       expect(store.isLoading).toBe(false)
       expect(store.error).toBeNull()
@@ -61,7 +61,19 @@ describe('Spotify Store', () => {
       const store = useSpotifyStore()
       await store.fetchAudiobooks(20, 10, 'US')
       
-      expect(api.getAudiobooks).toHaveBeenCalledWith(20, 10, 'US')
+      expect(api.getAudiobooks).toHaveBeenCalledWith(20, 10, 'US', undefined)
+    })
+
+    it('should pass search query to API', async () => {
+      // Type cast as any to avoid AxiosResponse typing issues in tests
+      vi.mocked(api.getAudiobooks).mockResolvedValue({
+        data: { audiobooks: { items: [] } }
+      } as any)
+      
+      const store = useSpotifyStore()
+      await store.fetchAudiobooks(40, 0, 'AU', 'harry potter')
+      
+      expect(api.getAudiobooks).toHaveBeenCalledWith(40, 0, 'AU', 'harry potter')
     })
   })
 })

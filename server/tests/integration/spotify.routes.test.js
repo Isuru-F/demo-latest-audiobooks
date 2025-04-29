@@ -79,4 +79,47 @@ describe('Spotify API Routes', () => {
         .expect(500);
     });
   });
+
+  describe('GET /api/spotify/audiobooks', () => {
+    it('should return audiobooks with default parameters', async () => {
+      // Mock the getAudiobooks method
+      const mockAudiobooks = {
+        audiobooks: {
+          items: [
+            { id: '1', name: 'Audiobook 1' },
+            { id: '2', name: 'Audiobook 2' }
+          ]
+        }
+      };
+      spotifyService.getAudiobooks.mockResolvedValue(mockAudiobooks);
+
+      const response = await request(app)
+        .get('/api/spotify/audiobooks')
+        .expect('Content-Type', /json/)
+        .expect(200);
+
+      expect(response.body).toEqual(mockAudiobooks);
+      expect(spotifyService.getAudiobooks).toHaveBeenCalledWith(40, 0, 'AU', 'tag:new');
+    });
+
+    it('should pass custom parameters including search query to the service', async () => {
+      // Mock the getAudiobooks method
+      spotifyService.getAudiobooks.mockResolvedValue({ audiobooks: { items: [] } });
+
+      await request(app)
+        .get('/api/spotify/audiobooks?limit=10&offset=5&market=GB&query=harry%20potter')
+        .expect(200);
+
+      expect(spotifyService.getAudiobooks).toHaveBeenCalledWith(10, 5, 'GB', 'harry potter');
+    });
+
+    it('should handle errors from the service', async () => {
+      // Mock a service error
+      spotifyService.getAudiobooks.mockRejectedValue(new Error('API Error'));
+
+      await request(app)
+        .get('/api/spotify/audiobooks')
+        .expect(500);
+    });
+  });
 });
