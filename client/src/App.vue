@@ -10,7 +10,6 @@ import { RouterLink, RouterView } from 'vue-router'
     <nav>
       <RouterLink to="/">Audiobooks</RouterLink>
       <RouterLink to="/latest-music">Latest Music</RouterLink>
-      <RouterLink to="/genres">Genres</RouterLink>
     </nav>
   </header>
 
