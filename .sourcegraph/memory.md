@@ -1,5 +1,12 @@
 # Project Memory
 
+## Development
+
+When making changes to `web/` or `server/`, assume the user is already running the dev server. You can use Puppeteer to get screenshots for visual feedback on your changes to ensure they are correct:
+
+- `web/` runs at http://localhost:5173
+- `server/` runs at http://localhost:3000
+
 ## Build/Test/Lint Commands
 
 ### Client (Vue 3.5)
