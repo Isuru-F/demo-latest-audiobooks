@@ -73,7 +73,7 @@ onMounted(() => {
               <input type="checkbox" v-model="multiCastOnly">
               <span class="toggle-slider"></span>
             </label>
-            <span class="toggle-label">Multi-Cast Only</span>
+            <span class="toggle-label">Full cast</span>
           </div>
         </div>
       </div>

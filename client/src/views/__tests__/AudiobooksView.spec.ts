@@ -67,7 +67,7 @@ describe('AudiobooksView', () => {
     expect(wrapper.find('.audiobooks').exists()).toBe(true)
     expect(wrapper.find('.search-input').exists()).toBe(true)
     expect(wrapper.find('.toggle-switch').exists()).toBe(true)
-    expect(wrapper.find('.toggle-label').text()).toBe('Multi-Cast Only')
+    expect(wrapper.find('.toggle-label').text()).toBe('Full cast')
   })
   
   it('has search input functionality', async () => {
