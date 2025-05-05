@@ -23,7 +23,7 @@ const mockAudiobooks = [
   },
   {
     id: '2',
-    name: 'Multi-Cast Book',
+    name: 'Full-Cast Book',
     authors: [{ name: 'Author 2' }],
     narrators: ['Narrator 1', 'Narrator 2', 'Narrator 3'],
     images: [],
@@ -80,39 +80,39 @@ describe('AudiobooksView', () => {
     expect(wrapper.find('.search-input').exists()).toBe(true)
   })
 
-  it('has multi-cast filter toggle functionality', async () => {
+  it('has full-cast narration filter toggle functionality', async () => {
     setActivePinia(createPinia())
     const wrapper = mount(AudiobooksView)
     
     // Check that both audiobooks are visible initially
     expect(wrapper.findAllComponents('.audiobook-card-stub').length).toBe(2)
     
-    // Enable multi-cast filter
+    // Enable full-cast narration filter
     const toggleInput = wrapper.find('.toggle-switch input')
     await toggleInput.setValue(true)
     
-    // Verify only multi-cast audiobooks are shown (only the second mock item)
+    // Verify only full-cast narration audiobooks are shown (only the second mock item)
     // We'd need to check the actual rendered components to confirm this
-    expect(wrapper.vm.multiCastOnly).toBe(true)
+    expect(wrapper.vm.fullCastOnly).toBe(true)
     
-    // The filtered computed property should now only show multi-cast audiobooks
+    // The filtered computed property should now only show full-cast narration audiobooks
     // Since we're using stubs, we just verify the toggle activated correctly
   })
 
-  it('combines text search with multi-cast filter', async () => {
+  it('combines text search with full-cast narration filter', async () => {
     setActivePinia(createPinia())
     const wrapper = mount(AudiobooksView)
     
-    // Enable multi-cast filter
+    // Enable full-cast narration filter
     const toggleInput = wrapper.find('.toggle-switch input')
     await toggleInput.setValue(true)
     
-    // Add search term that matches the multi-cast book
+    // Add search term that matches the full-cast book
     const searchInput = wrapper.find('.search-input')
-    await searchInput.setValue('Multi-Cast')
+    await searchInput.setValue('Full-Cast')
     
     // Verify both filters are active
-    expect(wrapper.vm.multiCastOnly).toBe(true)
-    expect(wrapper.vm.searchQuery).toBe('Multi-Cast')
+    expect(wrapper.vm.fullCastOnly).toBe(true)
+    expect(wrapper.vm.searchQuery).toBe('Full-Cast')
   })
 })

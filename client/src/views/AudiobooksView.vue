@@ -5,15 +5,15 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
-const multiCastOnly = ref(false);
+const fullCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
   let filtered = spotifyStore.audiobooks;
   
-  // Apply multi-cast filter if enabled
-  if (multiCastOnly.value) {
+  // Apply full-cast narration filter if enabled
+  if (fullCastOnly.value) {
     filtered = filtered.filter(audiobook => {
-      // Consider it multi-cast if it has more than one narrator
+      // Consider it full-cast if it has more than one narrator
       return Array.isArray(audiobook.narrators) && audiobook.narrators.length > 1;
     });
   }
@@ -71,9 +71,9 @@ onMounted(() => {
           </div>
           <div class="filter-toggle">
             <label class="toggle-switch">
-              <input type="checkbox" v-model="multiCastOnly">
+              <input type="checkbox" v-model="fullCastOnly">
               <span class="toggle-slider"></span>
-              <span class="toggle-label">Multi-Cast Only</span>
+              <span class="toggle-label">Full-Cast Narration</span>
             </label>
           </div>
         </div>
