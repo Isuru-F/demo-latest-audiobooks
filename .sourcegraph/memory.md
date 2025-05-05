@@ -52,5 +52,5 @@ When making changes to `web/` or `server/`, assume the user is already running t
 - Include a summary of the changes made in the PR description
 - Ensure all CI checks pass before merging
 - Merge the PR into the main branch
-- Outline if you added any additional unit tests in the description 
-- Include testing instructions for a human to review, eg visit / , perform action, expected 1. toggle to do XYZ
+- Outline if you added any additional unit tests in the description and incldues the names of the new tests added and number of tests removed
+- Include Human testing instructions for a human to review, eg visit / , perform action, expected 1. toggle to do XYZ
