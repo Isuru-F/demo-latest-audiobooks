@@ -5,37 +5,53 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let filteredBooks = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter if enabled
+  if (multiCastOnly.value) {
+    filteredBooks = filteredBooks.filter(audiobook => {
+      // Check if the audiobook has more than one narrator
+      return audiobook.narrators && audiobook.narrators.length > 1;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  // Apply text search if there's a query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filteredBooks = filteredBooks.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
-    
-    return authorMatch || narratorMatch;
-  });
+  }
+  
+  return filteredBooks;
 });
+
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+};
 
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
@@ -48,13 +64,25 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="search-filters">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="toggle-container">
+            <button 
+              class="toggle-button" 
+              :class="{ 'active': multiCastOnly }" 
+              @click="toggleMultiCast"
+            >
+              <span class="toggle-icon">{{ multiCastOnly ? '✓' : '' }}</span>
+              <span>Multi-Cast Only</span>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -143,6 +171,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.search-filters {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +199,48 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  position: relative;
+}
+
+.toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-button:hover {
+  background: #e8eaf6;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.toggle-button.active {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+}
+
+.toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
 }
 
 .audiobook-grid {
