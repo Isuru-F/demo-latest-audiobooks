@@ -33,6 +33,12 @@ When making changes to `web/` or `server/`, assume the user is already running t
 
 ## Development Process
 
+### Testing Requirements
+- Always create unit tests for new functionality
+- Follow existing test patterns in the codebase
+- Ensure tests cover both happy path and edge cases
+- Run tests after implementation to verify functionality
+
 ## Task/Issue source
 - References to project Issues starting with GTM-* are from linear, access these via the Linear MCP server
 
