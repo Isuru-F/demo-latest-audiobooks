@@ -24,3 +24,26 @@
 - Error handling: Use try/catch blocks and appropriate error responses
 - Prefer async/await over promise chains
 
+## Development Process
+
+## Task/Issue source
+- References to project Issues starting with GTM-* are from linear, access these via the Linear MCP server
+
+
+### User Story Review
+- Review each user story to identify any ambiguous or undefined requirements
+- Check for unclear technical terms or implementation details
+- Ask for clarification on any ambiguous parts before starting implementation
+- Confirm understanding of acceptance criteria before making code changes
+- Ensure all required data types and edge cases are addressed
+
+## GitHub Creating PRs
+- Create a new branch for each user story
+- Name the branch with the user story number and a brief description
+- Include a link to the user story in the PR description
+- Reference any relevant issues in the PR description
+- Include a summary of the changes made in the PR description
+- Ensure all CI checks pass before merging
+- Merge the PR into the main branch
+- Outline if you added any additional unit tests in the description 
+- Include testing instructions for a human to review, eg visit / , perform action, expected 1. toggle to do XYZ

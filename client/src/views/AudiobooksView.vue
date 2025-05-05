@@ -44,16 +44,10 @@ onMounted(() => {
 
 <template>
   <main>
-    <section class="hero">
-      <div class="hero-content">
-        <h1>Welcome to Audiobook Hub</h1>
-        <p>Your destination for the latest audiobook releases and bestsellers</p>
-      </div>
-    </section>
 
     <section class="audiobooks">
       <div class="audiobooks-header">
-        <h2>Latest Audiobooks</h2>
+        <h2>Latest Audiobooks via Spotify API</h2>
         <div class="search-container">
           <input 
             type="text" 

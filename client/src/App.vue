@@ -5,7 +5,7 @@ import { RouterLink, RouterView } from 'vue-router'
 <template>
   <header>
     <div class="logo">
-      <h1>Audiobook Hub</h1>
+      <h1>Today's Audiobooks</h1>
     </div>
     <nav>
       <RouterLink to="/">Audiobooks</RouterLink>
@@ -16,7 +16,7 @@ import { RouterLink, RouterView } from 'vue-router'
   <RouterView />
 
   <footer>
-    <p>&copy; {{ new Date().getFullYear() }} Audiobook Hub - Your audiobook discovery platform</p>
+    <p>&copy; {{ new Date().getFullYear() }} Demo project</p>
   </footer>
 </template>
 
