@@ -52,7 +52,8 @@ When creating a pull request, follow these guidelines:
 - Name the branch with the user story number and a brief description
 - Include a link to the user story in the PR description
 - Create a PR using the GitHub Cli using the gh commands `gh pr create` 
-- Reference any relevant issues in the PR description
+- When create a GitHub PR be sure to include all the items below - to ensure it's formatted correctly use the flag --body-file with a temp pr-description.md file that isn't commited.
+- Reference any relevant issues in the PR description 
 - Include a high level summary of the changes made in the PR description for a product manager to understand
 - Include another summary of the changes made in the PR description for a developer to understand (Technical Notes)
 - Ensure all CI checks pass before merging (unit tests)
