@@ -44,13 +44,16 @@ When making changes to `web/` or `server/`, assume the user is already running t
 - Confirm understanding of acceptance criteria before making code changes
 - Ensure all required data types and edge cases are addressed
 
-## GitHub Creating PRs
+# Pull Request Guidelines
+
+When creating a pull request, follow these guidelines:
+
 - Create a new branch for each user story
 - Name the branch with the user story number and a brief description
 - Include a link to the user story in the PR description
 - Reference any relevant issues in the PR description
-- Include a summary of the changes made in the PR description
-- Ensure all CI checks pass before merging
-- Merge the PR into the main branch
-- Outline if you added any additional unit tests in the description and incldues the names of the new tests added and number of tests removed
-- Include Human testing instructions for a human to review, eg visit / , perform action, expected 1. toggle to do XYZ
+- Include a high level summary of the changes made in the PR description for a product manager to understand
+- Include another summary of the changes made in the PR description for a developer to understand (Technical Notes)
+- Ensure all CI checks pass before merging (unit tests)
+- Outline if you added any additional unit tests in the description and include the names of the new tests added and number of tests removed eg (Added 2 tests, removed 1 test) with a summary of the tests added and removed.
+- Include Human testing instructions for a human to review with URLS, eg visit / , perform action, expected 1. toggle to do XYZ
