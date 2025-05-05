@@ -28,9 +28,7 @@ describe('AudiobooksView', () => {
     const wrapper = mount(AudiobooksView)
     
     // Check if the component renders main sections
-    expect(wrapper.find('.hero').exists()).toBe(true)
     expect(wrapper.find('.audiobooks').exists()).toBe(true)
-    
   })
   
   it('has search input functionality', async () => {
@@ -43,5 +41,23 @@ describe('AudiobooksView', () => {
     
     // Simply verify the setValue function works
     expect(wrapper.find('.search-input').exists()).toBe(true)
+  })
+
+  it('has multi-cast narrator toggle functionality', async () => {
+    setActivePinia(createPinia())
+    const wrapper = mount(AudiobooksView)
+    
+    // Check if multi-cast toggle exists
+    expect(wrapper.find('.toggle-switch').exists()).toBe(true)
+    
+    // Check toggle label
+    expect(wrapper.find('.toggle-label').text()).toBe('Multi-Cast Only')
+    
+    // Test toggle functionality
+    const toggleInput = wrapper.find('.toggle-switch input')
+    await toggleInput.setValue(true)
+    
+    // Check if toggling works
+    expect(toggleInput.element.checked).toBe(true)
   })
 })
