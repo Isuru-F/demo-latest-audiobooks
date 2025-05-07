@@ -132,7 +132,7 @@ describe('AudiobooksView component', () => {
     
     // Check if toggle has appropriate aria-label
     const toggleInput = wrapper.find('#multicast-toggle');
-    expect(toggleInput.attributes('aria-label')).toBe('Filter for multi-cast narrators only');
+    expect(toggleInput.attributes('aria-label')).toBe('Filter for full cast audiobooks only');
     
     // Check initial state styling
     const toggleContainer = wrapper.find('.toggle-container');

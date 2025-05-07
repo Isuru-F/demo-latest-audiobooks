@@ -76,9 +76,9 @@ onMounted(() => {
                   id="multicast-toggle" 
                   v-model="multiCastOnly" 
                   class="toggle-input"
-                  aria-label="Filter for multi-cast narrators only"
+                  aria-label="Filter for full cast audiobooks only"
                 />
-                <span class="toggle-text">Multi-Cast Only</span>
+                <span class="toggle-text">Full Cast</span>
               </label>
             </div>
           </div>
