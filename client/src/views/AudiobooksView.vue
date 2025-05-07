@@ -60,22 +60,27 @@ onMounted(() => {
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
         <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
-          <div class="toggle-container">
-            <label for="multicast-toggle" class="toggle-label">
-              <input 
-                type="checkbox" 
-                id="multicast-toggle" 
-                v-model="multiCastOnly" 
-                class="toggle-input"
-              />
-              <span class="toggle-text">Multi-Cast Only</span>
-            </label>
+          <div class="search-input-wrapper">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="filter-container">
+            <div class="toggle-container">
+              <label for="multicast-toggle" class="toggle-label">
+                <input 
+                  type="checkbox" 
+                  id="multicast-toggle" 
+                  v-model="multiCastOnly" 
+                  class="toggle-input"
+                  aria-label="Filter for multi-cast narrators only"
+                />
+                <span class="toggle-text">Multi-Cast Only</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -167,7 +172,16 @@ onMounted(() => {
 
 .search-container {
   position: relative;
-  width: 300px;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
 }
 
 .search-input {
@@ -188,10 +202,26 @@ onMounted(() => {
   background: #ffffff;
 }
 
-.toggle-container {
-  margin-top: 15px;
+.filter-container {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  background: #f0f2fa;
+  padding: 5px 15px;
+  border-radius: 30px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.toggle-container:hover {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(138, 66, 255, 0.1);
 }
 
 .toggle-label {
@@ -213,6 +243,8 @@ onMounted(() => {
   padding-left: 50px;
   color: #2a2d3e;
   font-size: 14px;
+  font-weight: 500;
+  transition: color 0.3s ease;
 }
 
 .toggle-text:before {
@@ -224,7 +256,8 @@ onMounted(() => {
   height: 20px;
   border-radius: 10px;
   background: #f0f2fa;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, box-shadow 0.3s;
+  border: 1px solid rgba(138, 66, 255, 0.1);
 }
 
 .toggle-text:after {
@@ -240,8 +273,14 @@ onMounted(() => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+.toggle-input:checked + .toggle-text {
+  color: #8a42ff;
+  font-weight: 600;
+}
+
 .toggle-input:checked + .toggle-text:before {
   background: linear-gradient(90deg, #e942ff, #8a42ff);
+  box-shadow: 0 0 10px rgba(138, 66, 255, 0.3);
 }
 
 .toggle-input:checked + .toggle-text:after {
@@ -250,7 +289,7 @@ onMounted(() => {
 }
 
 .toggle-input:focus + .toggle-text:before {
-  box-shadow: 0 0 0 2px rgba(138, 66, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(138, 66, 255, 0.2);
 }
 
 .audiobook-grid {
@@ -274,10 +313,16 @@ onMounted(() => {
   
   .search-container {
     width: 100%;
+    max-width: none;
   }
   
+  .filter-container {
+    justify-content: flex-start;
+    margin-top: 5px;
+  }
+
   .toggle-container {
-    margin-top: 15px;
+    margin-top: 0;
   }
 }
 

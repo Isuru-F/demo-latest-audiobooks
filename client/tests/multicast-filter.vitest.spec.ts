@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import AudiobooksView from '../src/views/AudiobooksView.vue';
 import { useSpotifyStore } from '../src/stores/spotify';
+import { nextTick } from 'vue';
 
 // Mock the store
 vi.mock('../src/stores/spotify', () => {
@@ -106,10 +107,12 @@ describe('AudiobooksView component', () => {
     // Toggle multi-cast filter on
     const toggleInput = wrapper.find('#multicast-toggle');
     await toggleInput.setValue(true);
+    await nextTick();
 
     // Enter search text that should match all books
     const searchInput = wrapper.find('.search-input');
     await searchInput.setValue('Test');
+    await nextTick();
 
     // Should still show only multi-cast books (2)
     const audiobookCards = wrapper.findAll('.audiobook-card');
@@ -117,9 +120,39 @@ describe('AudiobooksView component', () => {
 
     // Clear search
     await searchInput.setValue('');
+    await nextTick();
 
     // Should still show only multi-cast books (2)
     const audiobookCardsAfterClear = wrapper.findAll('.audiobook-card');
     expect(audiobookCardsAfterClear.length).toBe(2);
+  });
+
+  it('styling and accessibility of multi-cast toggle is correct', async () => {
+    const wrapper = mount(AudiobooksView);
+    
+    // Check if toggle has appropriate aria-label
+    const toggleInput = wrapper.find('#multicast-toggle');
+    expect(toggleInput.attributes('aria-label')).toBe('Filter for multi-cast narrators only');
+    
+    // Check initial state styling
+    const toggleContainer = wrapper.find('.toggle-container');
+    expect(toggleContainer.exists()).toBe(true);
+    
+    // Toggle on and check active styling
+    await toggleInput.setValue(true);
+    await nextTick();
+    
+    // Check that filter works with search queries
+    const searchInput = wrapper.find('.search-input');
+    await searchInput.setValue('Author 3');
+    await nextTick();
+    
+    // Should show only the multi-cast book by Author 3
+    const audiobookCards = wrapper.findAll('.audiobook-card');
+    expect(audiobookCards.length).toBe(1);
+    
+    const titles = wrapper.findAll('.audiobook-title');
+    expect(titles.length).toBe(1);
+    expect(titles[0].text()).toBe('Test Book 3');
   });
 });
