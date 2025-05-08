@@ -35,7 +35,7 @@ jobs:
           npm install -g @sourcegraph/amp
 
       - name: Authenticate GitHub CLI
-        run: gh auth setup-git --token ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+        run: echo "${{ secrets.AMP_REVIEW_GH_TOKEN }}" | gh auth login --with-token
 
       - name: Fetch PR details
         id: pr-details
