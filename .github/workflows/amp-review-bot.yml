@@ -23,7 +23,6 @@ jobs:
         with:
           github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
           script: |
-            const core = require('@actions/core');
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -33,17 +32,16 @@ jobs:
             const baseSha = pr.base.sha;
             const headSha = pr.head.sha;
             
-            // Set these as outputs directly
-            core.setOutput('base_sha', baseSha);
-            core.setOutput('head_sha', headSha);
+            // Return the values
             return { baseSha, headSha };
 
       - name: Generate diff
         id: diff
         run: |
-          # Use the direct outputs from previous step
-          BASE_SHA="${{ steps.pr.outputs.base_sha }}"
-          HEAD_SHA="${{ steps.pr.outputs.head_sha }}"
+          # Parse the JSON output from previous step
+          PR_DATA='${{ steps.pr.outputs.result }}'
+          BASE_SHA=$(echo $PR_DATA | jq -r '.baseSha')
+          HEAD_SHA=$(echo $PR_DATA | jq -r '.headSha')
           
           # Make sure we have both branches
           git fetch origin $BASE_SHA --depth=1
