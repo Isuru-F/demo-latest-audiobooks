@@ -21,25 +21,57 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup GitHub CLI
+        uses: cli/setup-gh@v1
+
       - name: Install AMP CLI and dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git ripgrep
           npm install -g @sourcegraph/amp
 
+      - name: Fetch PR details
+        id: pr-details
+        env:
+          GITHUB_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "PR_BODY=${{ github.event.pull_request.body }}" >> $GITHUB_ENV
+          echo "PR_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+          # Get list of changed files
+          CHANGED_FILES=$(gh pr view $PR_NUMBER --json files --jq '.files[].path' | tr '\n' ',' | sed 's/,$//')
+          echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
+          
+          # Get git diff for the PR and save to file
+          gh pr diff $PR_NUMBER > pr_diff.txt
+
       - name: Run AMP with review prompt
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          amp --no-color --no-notifications <<EOF > amp_review.txt
-          - Please review this PR
+          # Create a prompt file with PR details
+          cat > prompt.txt <<EOF
+          - Please review PR #$PR_NUMBER: "$PR_TITLE"
+          - PR URL: $PR_URL
+          - Files changed: $CHANGED_FILES
+          - PR description: "$PR_BODY"
           - Check for completeness
           - If there is new functionality make sure you can understand why it was changed
           - If there are things that would make this significantly better please leave a GitHub comment
           - Limit your recommendations to what was added in the diff but feel free to look at the entire codebase to understand more context
 
+          Below is the git diff for this PR:
+          ```diff
+          $(cat pr_diff.txt)
+          ```
+
           Provide detailed explanations of what is changing and why.
           EOF
+
+          # Run AMP with the prompt file
+          amp --no-color --no-notifications "$(cat prompt.txt)" > amp_review.txt
 
       - name: Post AMP output as a PR comment
         uses: marocchino/sticky-pull-request-comment@v2
