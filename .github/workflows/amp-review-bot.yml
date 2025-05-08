@@ -32,12 +32,17 @@ jobs:
             const baseSha = pr.base.sha;
             const headSha = pr.head.sha;
             
-            return { baseSha, headSha };
+            return JSON.stringify({ baseSha, headSha });
 
       - name: Generate diff
         id: diff
         run: |
-          git diff ${{ steps.pr.outputs.result.baseSha }} ${{ steps.pr.outputs.result.headSha }} > pr_diff.txt
+          # Parse the JSON output from previous step
+          BASE_SHA=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.baseSha')
+          HEAD_SHA=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.headSha')
+          
+          # Generate diff
+          git diff $BASE_SHA $HEAD_SHA > pr_diff.txt
           echo "DIFF_SIZE=$(stat -c%s pr_diff.txt)" >> $GITHUB_OUTPUT
 
       - name: Install AMP CLI
@@ -49,8 +54,11 @@ jobs:
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
+          # Create prompt file
           echo "Please review this PR, look at the diff and suggest improvements" > prompt.txt
-          cat prompt.txt - pr_diff.txt | amp --no-color --no-notifications --stdin > amp_review.txt
+          
+          # Concatenate prompt and diff, then pipe to AMP
+          (cat prompt.txt && echo "\n\n" && cat pr_diff.txt) | amp --no-color --no-notifications --stdin > amp_review.txt
 
       - name: Post review comment
         if: steps.diff.outputs.DIFF_SIZE != '0'
@@ -59,39 +67,49 @@ jobs:
           github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
           script: |
             const fs = require('fs');
-            const reviewContent = fs.readFileSync('amp_review.txt', 'utf8');
+            let reviewContent;
             
-            const commentBody = `## AMP Code Review
-
-${reviewContent}`;
+            try {
+              reviewContent = fs.readFileSync('amp_review.txt', 'utf8');
+            } catch (error) {
+              console.error('Error reading amp_review.txt:', error);
+              reviewContent = 'Error generating review.';
+            }
             
-            // Find existing comment to update
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
+            // Use string concatenation instead of template literals to avoid YAML issues
+            const commentBody = '## AMP Code Review\n\n' + reviewContent;
             
-            const botComment = comments.find(comment => 
-              comment.body.includes('## AMP Code Review')
-            );
-            
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: commentBody
-              });
-              console.log('Updated existing review comment');
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
+            try {
+              // Find existing comment to update
+              const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: commentBody
               });
-              console.log('Created new review comment');
+              
+              const botComment = comments.find(comment => 
+                comment.body.includes('## AMP Code Review')
+              );
+              
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: commentBody
+                });
+                console.log('Updated existing review comment');
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: commentBody
+                });
+                console.log('Created new review comment');
+              }
+            } catch (error) {
+              console.error('Error posting comment:', error);
             }
