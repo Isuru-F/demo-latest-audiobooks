@@ -28,8 +28,8 @@ describe('AudiobooksView', () => {
     const wrapper = mount(AudiobooksView)
     
     // Check if the component renders main sections
-    expect(wrapper.find('.hero').exists()).toBe(true)
     expect(wrapper.find('.audiobooks').exists()).toBe(true)
+    expect(wrapper.find('.search-input').exists()).toBe(true)
     
   })
   
