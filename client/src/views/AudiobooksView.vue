@@ -5,47 +5,36 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
-const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  let result = spotifyStore.audiobooks;
-  
-  // Apply multi-cast filter if enabled
-  if (multiCastOnly.value) {
-    result = result.filter(audiobook => {
-      return audiobook.narrators && audiobook.narrators.length > 1;
-    });
+  if (!searchQuery.value.trim()) {
+    return spotifyStore.audiobooks;
   }
   
-  // Apply text search if query exists
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim();
-    result = result.filter(audiobook => {
-      // Search by audiobook name
-      if (audiobook.name.toLowerCase().includes(query)) {
-        return true;
+  const query = searchQuery.value.toLowerCase().trim();
+  return spotifyStore.audiobooks.filter(audiobook => {
+    // Search by audiobook name
+    if (audiobook.name.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search by author name
+    const authorMatch = audiobook.authors.some(author => 
+      author.name.toLowerCase().includes(query)
+    );
+    
+    // Search by narrator
+    const narratorMatch = audiobook.narrators?.some(narrator => {
+      if (typeof narrator === 'string') {
+        return narrator.toLowerCase().includes(query);
+      } else if (narrator && typeof narrator === 'object') {
+        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
       }
-      
-      // Search by author name
-      const authorMatch = audiobook.authors.some(author => 
-        author.name.toLowerCase().includes(query)
-      );
-      
-      // Search by narrator
-      const narratorMatch = audiobook.narrators?.some(narrator => {
-        if (typeof narrator === 'string') {
-          return narrator.toLowerCase().includes(query);
-        } else if (narrator && typeof narrator === 'object') {
-          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-        }
-        return false;
-      });
-      
-      return authorMatch || narratorMatch;
+      return false;
     });
-  }
-  
-  return result;
+    
+    return authorMatch || narratorMatch;
+  });
 });
 
 onMounted(() => {
@@ -66,17 +55,6 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
-          <div class="toggle-container">
-            <label for="multicast-toggle" class="toggle-label">
-              <input 
-                type="checkbox" 
-                id="multicast-toggle" 
-                v-model="multiCastOnly" 
-                class="toggle-input"
-              />
-              <span class="toggle-text">Multi-Cast Only</span>
-            </label>
-          </div>
         </div>
       </div>
       
@@ -188,71 +166,6 @@ onMounted(() => {
   background: #ffffff;
 }
 
-.toggle-container {
-  margin-top: 15px;
-  display: flex;
-  align-items: center;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle-input {
-  position: absolute;
-  opacity: 0;
-  height: 0;
-  width: 0;
-}
-
-.toggle-text {
-  position: relative;
-  padding-left: 50px;
-  color: #2a2d3e;
-  font-size: 14px;
-}
-
-.toggle-text:before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 40px;
-  height: 20px;
-  border-radius: 10px;
-  background: #f0f2fa;
-  transition: background-color 0.3s;
-}
-
-.toggle-text:after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: white;
-  transition: transform 0.3s, background-color 0.3s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.toggle-input:checked + .toggle-text:before {
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
-}
-
-.toggle-input:checked + .toggle-text:after {
-  transform: translateX(20px);
-  background: white;
-}
-
-.toggle-input:focus + .toggle-text:before {
-  box-shadow: 0 0 0 2px rgba(138, 66, 255, 0.2);
-}
-
 .audiobook-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -263,21 +176,6 @@ onMounted(() => {
 @media (min-width: 1200px) {
   .audiobook-grid {
     grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .audiobooks-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .search-container {
-    width: 100%;
-  }
-  
-  .toggle-container {
-    margin-top: 15px;
   }
 }
 
