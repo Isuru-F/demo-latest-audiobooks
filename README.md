@@ -1,6 +1,6 @@
-# Audiobook Demo project
+# Jukebox - Spotify Music Discovery App
 
-Demo project that users the Spotify Web API to fetch the latest audiobooks for the AU region and display them via a nodejs API.
+Jukebox is a modern music discovery application that allows users to explore new music releases and various music genres. It uses the Spotify API to fetch data and present it in a visually pleasing interface.
 
 ## Project Structure
 
