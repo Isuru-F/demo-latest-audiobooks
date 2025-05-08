@@ -11,47 +11,61 @@ permissions:
 jobs:
   amp-review:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js v22
-        uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          node-version: '22'
+          fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Fetch PR data
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const baseSha = pr.base.sha;
+            const headSha = pr.head.sha;
+            
+            return { baseSha, headSha };
+
+      - name: Generate diff
+        id: diff
+        run: |
+          git diff ${{ steps.pr.outputs.result.baseSha }} ${{ steps.pr.outputs.result.headSha }} > pr_diff.txt
+          echo "DIFF_SIZE=$(stat -c%s pr_diff.txt)" >> $GITHUB_OUTPUT
+
+      - name: Install AMP CLI
         run: npm install -g @sourcegraph/amp
 
-      - name: Run Amp review
+      - name: Run AMP review
+        id: amp_review
+        if: steps.diff.outputs.DIFF_SIZE != '0'
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          # Create prompt file
-          cat > prompt.txt << EOF
-          Please review this PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-          URL: ${{ github.event.pull_request.html_url }}
-          
-          Provide a thorough code review looking for issues and possible improvements.
-          EOF
-          
-          # Run AMP with stdin
-          cat prompt.txt | amp --stdin > amp_review.txt
-          
-      - name: Post comment
-        uses: actions/github-script@v6
+          echo "Please review this PR, look at the diff and suggest improvements" > prompt.txt
+          cat prompt.txt - pr_diff.txt | amp --no-color --no-notifications --stdin > amp_review.txt
+
+      - name: Post review comment
+        if: steps.diff.outputs.DIFF_SIZE != '0'
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
           script: |
             const fs = require('fs');
             const reviewContent = fs.readFileSync('amp_review.txt', 'utf8');
             
-            const commentBody = `## AMP Bot Review
+            const commentBody = `## AMP Code Review
+
+${reviewContent}`;
             
-            ${reviewContent}`;
-            
-            // Look for existing comment
+            // Find existing comment to update
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -59,7 +73,7 @@ jobs:
             });
             
             const botComment = comments.find(comment => 
-              comment.body.includes('## AMP Bot Review')
+              comment.body.includes('## AMP Code Review')
             );
             
             if (botComment) {
@@ -70,6 +84,7 @@ jobs:
                 comment_id: botComment.id,
                 body: commentBody
               });
+              console.log('Updated existing review comment');
             } else {
               // Create new comment
               await github.rest.issues.createComment({
@@ -78,4 +93,5 @@ jobs:
                 issue_number: context.issue.number,
                 body: commentBody
               });
+              console.log('Created new review comment');
             }
