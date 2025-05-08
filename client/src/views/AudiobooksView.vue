@@ -103,33 +103,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.hero {
-  background: linear-gradient(135deg, #8a42ff, #e942ff);
-  padding: 80px 20px;
-  text-align: center;
-  color: white;
-  margin-bottom: 40px;
-  border-radius: 0 0 30px 30px;
-  box-shadow: 0 10px 30px rgba(138, 66, 255, 0.3);
-}
 
-.hero-content {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.hero h1 {
-  font-size: 48px;
-  margin-bottom: 20px;
-  font-weight: 700;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.hero p {
-  font-size: 20px;
-  margin-bottom: 30px;
-  opacity: 0.9;
-}
 
 .audiobooks {
   padding: 20px;
