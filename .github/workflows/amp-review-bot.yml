@@ -58,6 +58,11 @@ jobs:
             echo "No meaningful diff found between commits." >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
       - name: Install AMP CLI
         run: npm install -g @sourcegraph/amp
 
