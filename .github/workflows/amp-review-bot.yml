@@ -52,29 +52,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
 
-      - name: Format files list
-        id: format-files
+      - name: Set basic PR details
+        id: pr-details
         run: |
-          echo '${{ steps.get-pr-files.outputs.data }}' > pr_files.json
-          CHANGED_FILES=$(jq -r '.[].filename' pr_files.json | paste -sd ',' -)
-          echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "PR_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
 
       - name: Run Amp review
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          
-          # Create prompt
-          PROMPT="Review PR #$PR_NUMBER: $PR_TITLE
-          URL: $PR_URL
-          Files: $CHANGED_FILES
-          
-          Provide a detailed review explaining what's changing and why.
-          Check for code correctness, edge cases, and performance implications.
-          If improvements are needed, explain them clearly."
+          # Create simple prompt
+          PROMPT="Review PR #$PR_NUMBER: $PR_TITLE on $PR_URL. Provide a thorough code review looking for issues and possible improvements."
           
           # Run AMP with the prompt
           amp "$PROMPT" > amp_review.txt
