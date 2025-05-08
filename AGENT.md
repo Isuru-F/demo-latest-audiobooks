@@ -62,6 +62,7 @@ When creating a pull request, follow these guidelines:
 - Reference any relevant issues in the PR description 
 - Include a high level summary of the changes made in the PR description for a product manager to understand
 - Include another summary of the changes made in the PR description for a developer to understand (Technical Notes)
+- If the changes are big enough include a mermaid digram explain how the new features work. This is to help a human quickly get up to speed as to what was changed and why.
 - Ensure all CI checks pass before merging (unit tests)
 - Outline if you added any additional unit tests in the description and include the names of the new tests added and number of tests removed eg (Added 2 tests, removed 1 test) with a summary of the tests added and removed.
 - Include Human testing instructions for a human to review with URLS, eg visit / , perform action, expected 1. toggle to do XYZ

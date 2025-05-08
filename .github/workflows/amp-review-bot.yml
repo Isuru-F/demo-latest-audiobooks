@@ -74,7 +74,7 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR, look at the diff and suggest improvements"
+            echo "Please review this PR so that a human can understand how to improve this, look at the diff and suggest improvements, no need to mention what secrets were used"
             echo ""
             echo "DIFF:"
             cat pr_diff.txt
