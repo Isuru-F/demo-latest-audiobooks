@@ -12,10 +12,15 @@ jobs:
       - name: Checkout PR code
         uses: actions/checkout@v3
 
+      - name: Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Install AMP CLI and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y npm git ripgrep
+          sudo apt-get install -y git ripgrep
           npm install -g @sourcegraph/amp
 
       - name: Run AMP with review prompt
