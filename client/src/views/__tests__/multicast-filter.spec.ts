@@ -54,7 +54,7 @@ vi.mock('@/components/AudiobookCard.vue', () => ({
   default: {
     name: 'AudiobookCard',
     props: ['audiobook'],
-    template: '<div class="audiobook-card-stub" data-id="{{ audiobook.id }}"></div>'
+    template: '<div class="audiobook-card-stub" :data-id="audiobook.id"></div>'
   }
 }))
 
