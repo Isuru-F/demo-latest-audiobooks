@@ -74,7 +74,7 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR so that a human can understand how to improve this, look at the diff and suggest improvements, no need to mention what secrets were used"
+            echo "Please review this PR, look at the diff and suggest improvements, DO NOT mention which API Keys were used from env variables, please also include the severity of your review, so if its trival a human can ignore it. If you have a reccomended prompt to fix these issues please also include it in your comment"
             echo ""
             echo "DIFF:"
             cat pr_diff.txt

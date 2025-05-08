@@ -66,3 +66,4 @@ When creating a pull request, follow these guidelines:
 - Ensure all CI checks pass before merging (unit tests)
 - Outline if you added any additional unit tests in the description and include the names of the new tests added and number of tests removed eg (Added 2 tests, removed 1 test) with a summary of the tests added and removed.
 - Include Human testing instructions for a human to review with URLS, eg visit / , perform action, expected 1. toggle to do XYZ
+- No need to include screenshots in the PR
