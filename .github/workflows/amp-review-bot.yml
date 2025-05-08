@@ -13,74 +13,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout PR code
+      - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js v22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Setup GitHub CLI
-        run: |
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install gh
-
-      - name: Install AMP CLI and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git ripgrep
-          npm install -g @sourcegraph/amp
-
-      - name: Authenticate GitHub CLI
-        run: echo "${{ secrets.AMP_REVIEW_GH_TOKEN }}" | gh auth login --with-token
-
-      - name: Fetch PR details
-        id: pr-details
+      - name: Get PR information
+        uses: octokit/request-action@v2.x
+        id: get-pr-info
+        with:
+          route: GET /repos/{owner}/{repo}/pulls/{pull_number}
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.repository.name }}
+          pull_number: ${{ github.event.pull_request.number }}
         env:
-          GH_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
-          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-          echo "PR_BODY=${{ github.event.pull_request.body }}" >> $GITHUB_ENV
-          echo "PR_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
-          # Get list of changed files
-          CHANGED_FILES=$(gh pr view $PR_NUMBER --json files --jq '.files[].path' | tr '\n' ',' | sed 's/,$//')
-          echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
-          
-          # Get git diff for the PR and save to file
-          gh pr diff $PR_NUMBER > pr_diff.txt
+          GITHUB_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
 
-      - name: Run AMP with review prompt
+      - name: Install dependencies
+        run: npm install -g @sourcegraph/amp
+
+      - name: Get PR files
+        uses: octokit/request-action@v2.x
+        id: get-pr-files
+        with:
+          route: GET /repos/{owner}/{repo}/pulls/{pull_number}/files
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.event.repository.name }}
+          pull_number: ${{ github.event.pull_request.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+
+      - name: Format files list
+        id: format-files
+        run: |
+          CHANGED_FILES=$(echo '${{ steps.get-pr-files.outputs.data }}' | jq -r '.[].filename' | tr '\n' ',' | sed 's/,$//')
+          echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
+
+      - name: Run Amp review
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          # Create a prompt file with PR details
-          cat > prompt.txt <<EOF
-          - Please review PR #$PR_NUMBER: "$PR_TITLE"
-          - PR URL: $PR_URL
-          - Files changed: $CHANGED_FILES
-          - PR description: "$PR_BODY"
-          - Check for completeness
-          - If there is new functionality make sure you can understand why it was changed
-          - If there are things that would make this significantly better please leave a GitHub comment
-          - Limit your recommendations to what was added in the diff but feel free to look at the entire codebase to understand more context
-
-          Below is the git diff for this PR:
-          ```diff
-          $(cat pr_diff.txt)
-          ```
-
-          Provide detailed explanations of what is changing and why.
-          EOF
-
-          # Run AMP with the prompt file
-          amp --no-color --no-notifications "$(cat prompt.txt)" > amp_review.txt
-
-      - name: Post AMP output as a PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          
+          # Create prompt
+          PROMPT="Review PR #$PR_NUMBER: $PR_TITLE
+          URL: $PR_URL
+          Files: $CHANGED_FILES
+          
+          Provide a detailed review explaining what's changing and why.
+          Check for code correctness, edge cases, and performance implications.
+          If improvements are needed, explain them clearly."
+          
+          # Run AMP with the prompt
+          amp "$PROMPT" > amp_review.txt
+          
+      - name: Post comment
+        uses: actions/github-script@v6
         with:
-          path: amp_review.txt
+          github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reviewContent = fs.readFileSync('amp_review.txt', 'utf8');
+            
+            const commentBody = `## AMP Bot Review
+            
+            ${reviewContent}`;
+            
+            // Look for existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.body.includes('## AMP Bot Review')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
