@@ -23,13 +23,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Extract repo name
+        id: repo-name
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+        
       - name: Get PR information
         uses: octokit/request-action@v2.x
         id: get-pr-info
         with:
           route: GET /repos/{owner}/{repo}/pulls/{pull_number}
           owner: ${{ github.repository_owner }}
-          repo: ${{ github.repository.split('/')[1] }}
+          repo: ${{ steps.repo-name.outputs.REPO_NAME }}
           pull_number: ${{ github.event.pull_request.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
