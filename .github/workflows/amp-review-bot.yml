@@ -1,0 +1,38 @@
+name: AMP Review Bot
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  amp-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v3
+
+      - name: Install AMP CLI and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y npm git ripgrep
+          npm install -g @sourcegraph/amp
+
+      - name: Run AMP with review prompt
+        env:
+          AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
+        run: |
+          amp --no-color --no-notifications <<EOF > amp_review.txt
+          - Please review this PR
+          - Check for completeness
+          - If there is new functionality make sure you can understand why it was changed
+          - If there are things that would make this significantly better please leave a GitHub comment
+          - Limit your recommendations to what was added in the diff but feel free to look at the entire codebase to understand more context
+
+          Provide detailed explanations of what is changing and why.
+          EOF
+
+      - name: Post AMP output as a PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: amp_review.txt
