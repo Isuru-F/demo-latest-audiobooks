@@ -23,6 +23,7 @@ jobs:
         with:
           github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
           script: |
+            const core = require('@actions/core');
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -32,18 +33,32 @@ jobs:
             const baseSha = pr.base.sha;
             const headSha = pr.head.sha;
             
-            return JSON.stringify({ baseSha, headSha });
+            // Set these as outputs directly
+            core.setOutput('base_sha', baseSha);
+            core.setOutput('head_sha', headSha);
+            return { baseSha, headSha };
 
       - name: Generate diff
         id: diff
         run: |
-          # Parse the JSON output from previous step
-          BASE_SHA=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.baseSha')
-          HEAD_SHA=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.headSha')
+          # Use the direct outputs from previous step
+          BASE_SHA="${{ steps.pr.outputs.base_sha }}"
+          HEAD_SHA="${{ steps.pr.outputs.head_sha }}"
+          
+          # Make sure we have both branches
+          git fetch origin $BASE_SHA --depth=1
+          git fetch origin $HEAD_SHA --depth=1
           
           # Generate diff
           git diff $BASE_SHA $HEAD_SHA > pr_diff.txt
-          echo "DIFF_SIZE=$(stat -c%s pr_diff.txt)" >> $GITHUB_OUTPUT
+          
+          # Check if diff file exists and has content
+          if [ -s pr_diff.txt ]; then
+            echo "DIFF_SIZE=$(stat -c%s pr_diff.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "DIFF_SIZE=0" >> $GITHUB_OUTPUT
+            echo "No meaningful diff found between commits." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Install AMP CLI
         run: npm install -g @sourcegraph/amp
@@ -54,11 +69,16 @@ jobs:
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          # Create prompt file
-          echo "Please review this PR, look at the diff and suggest improvements" > prompt.txt
+          # Create prompt file with diff
+          {
+            echo "Please review this PR, look at the diff and suggest improvements"
+            echo ""
+            echo "DIFF:"
+            cat pr_diff.txt
+          } > amp_input.txt
           
-          # Concatenate prompt and diff, then pipe to AMP
-          (cat prompt.txt && echo "\n\n" && cat pr_diff.txt) | amp --no-color --no-notifications --stdin > amp_review.txt
+          # Run AMP with the combined input
+          cat amp_input.txt | amp --no-color --no-notifications --stdin > amp_review.txt
 
       - name: Post review comment
         if: steps.diff.outputs.DIFF_SIZE != '0'
