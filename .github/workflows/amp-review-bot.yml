@@ -55,7 +55,8 @@ jobs:
       - name: Format files list
         id: format-files
         run: |
-          CHANGED_FILES=$(echo '${{ steps.get-pr-files.outputs.data }}' | jq -r '.[].filename' | tr '\n' ',' | sed 's/,$//')
+          echo '${{ steps.get-pr-files.outputs.data }}' > pr_files.json
+          CHANGED_FILES=$(jq -r '.[].filename' pr_files.json | paste -sd ',' -)
           echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
 
       - name: Run Amp review
