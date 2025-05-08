@@ -4,35 +4,135 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   amp-review:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout PR code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install AMP CLI and dependencies
+      - name: Fetch PR data
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const baseSha = pr.base.sha;
+            const headSha = pr.head.sha;
+            
+            // Return the values
+            return { baseSha, headSha };
+
+      - name: Generate diff
+        id: diff
         run: |
-          sudo apt-get update
-          sudo apt-get install -y npm git ripgrep
-          npm install -g @sourcegraph/amp
+          # Parse the JSON output from previous step
+          PR_DATA='${{ steps.pr.outputs.result }}'
+          BASE_SHA=$(echo $PR_DATA | jq -r '.baseSha')
+          HEAD_SHA=$(echo $PR_DATA | jq -r '.headSha')
+          
+          # Make sure we have both branches
+          git fetch origin $BASE_SHA --depth=1
+          git fetch origin $HEAD_SHA --depth=1
+          
+          # Generate diff
+          git diff $BASE_SHA $HEAD_SHA > pr_diff.txt
+          
+          # Check if diff file exists and has content
+          if [ -s pr_diff.txt ]; then
+            echo "DIFF_SIZE=$(stat -c%s pr_diff.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "DIFF_SIZE=0" >> $GITHUB_OUTPUT
+            echo "No meaningful diff found between commits." >> $GITHUB_STEP_SUMMARY
+          fi
 
-      - name: Run AMP with review prompt
+      - name: Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install AMP CLI
+        run: npm install -g @sourcegraph/amp
+
+      - name: Run AMP review
+        id: amp_review
+        if: steps.diff.outputs.DIFF_SIZE != '0'
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          amp --no-color --no-notifications <<EOF > amp_review.txt
-          - Please review this PR
-          - Check for completeness
-          - If there is new functionality make sure you can understand why it was changed
-          - If there are things that would make this significantly better please leave a GitHub comment
-          - Limit your recommendations to what was added in the diff but feel free to look at the entire codebase to understand more context
+          # Create prompt file with diff
+          {
+            echo "Please review this PR, look at the diff and suggest improvements"
+            echo ""
+            echo "DIFF:"
+            cat pr_diff.txt
+          } > amp_input.txt
+          
+          # Run AMP with the combined input - removing the unsupported --stdin flag
+          cat amp_input.txt | amp --no-color --no-notifications > amp_review.txt
 
-          Provide detailed explanations of what is changing and why.
-          EOF
-
-      - name: Post AMP output as a PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Post review comment
+        if: steps.diff.outputs.DIFF_SIZE != '0'
+        uses: actions/github-script@v7
         with:
-          path: amp_review.txt
+          github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let reviewContent;
+            
+            try {
+              reviewContent = fs.readFileSync('amp_review.txt', 'utf8');
+            } catch (error) {
+              console.error('Error reading amp_review.txt:', error);
+              reviewContent = 'Error generating review.';
+            }
+            
+            // Use string concatenation instead of template literals to avoid YAML issues
+            const commentBody = '## AMP Code Review\n\n' + reviewContent;
+            
+            try {
+              // Find existing comment to update
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              const botComment = comments.find(comment => 
+                comment.body.includes('## AMP Code Review')
+              );
+              
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: commentBody
+                });
+                console.log('Updated existing review comment');
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: commentBody
+                });
+                console.log('Created new review comment');
+              }
+            } catch (error) {
+              console.error('Error posting comment:', error);
+            }
