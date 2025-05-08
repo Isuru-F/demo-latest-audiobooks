@@ -15,8 +15,11 @@ test('MultiCast filter should show only multi-narrator audiobooks', async ({ pag
   const toggleCheckbox = page.locator('.toggle input[type="checkbox"]');
   await toggleCheckbox.check();
   
-  // Wait for results to update
-  await page.waitForTimeout(500); // Short wait for the UI to update
+  // Wait for results to update - this ensures the filtering has been applied
+  await page.waitForFunction(() => {
+    // This runs in the browser context
+    return document.querySelectorAll('.audiobook-card').length !== document.querySelectorAll('.audiobook-card[style*="display: none"]').length;
+  });
   
   // Get the filtered count
   const filteredCount = await page.locator('.audiobook-card').count();

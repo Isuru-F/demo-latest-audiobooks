@@ -13,7 +13,8 @@ const filteredAudiobooks = computed(() => {
   // Filter by multi-cast narrators if toggle is active
   if (multiCastOnly.value) {
     filtered = filtered.filter(audiobook => {
-      return audiobook.narrators && audiobook.narrators.length > 1;
+      if (!audiobook.narrators) return false;
+      return Array.isArray(audiobook.narrators) && audiobook.narrators.length > 1;
     });
   }
   
@@ -169,6 +170,18 @@ onMounted(() => {
   flex-direction: column;
   gap: 15px;
   align-items: flex-end;
+}
+
+@media (min-width: 768px) {
+  .search-controls {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  
+  .toggle-container {
+    margin-left: 20px;
+  }
 }
 
 .search-container {

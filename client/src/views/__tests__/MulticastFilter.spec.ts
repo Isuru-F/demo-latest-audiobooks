@@ -54,6 +54,22 @@ vi.mock('@/stores/spotify', () => {
       uri: '',
       total_chapters: 8,
       duration_ms: 2600000
+    },
+    { 
+      id: '4', 
+      name: 'Book with null narrators', 
+      authors: [{ name: 'Author 4' }], 
+      narrators: null, 
+      images: [], 
+      external_urls: { spotify: '' }, 
+      release_date: '', 
+      publisher: '', 
+      description: '',
+      media_type: '',
+      type: '',
+      uri: '',
+      total_chapters: 5,
+      duration_ms: 1800000
     }
   ];
   
@@ -84,9 +100,9 @@ describe('Multicast Filter', () => {
   it('should show all audiobooks when multicast filter is off', () => {
     const wrapper = mount(AudiobooksView)
     
-    // With filter off, should show all three books
+    // With filter off, should show all four books
     const audiobookCards = wrapper.findAll('[data-testid="audiobook-card"]')
-    expect(audiobookCards.length).toBe(3)
+    expect(audiobookCards.length).toBe(4)
   })
   
   it('should only show multi-narrator audiobooks when filter is on', async () => {
