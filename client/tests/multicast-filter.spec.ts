@@ -14,8 +14,8 @@ test('Multi-cast filter should work correctly', async ({ page }) => {
   // Enable the multi-cast toggle
   await page.locator('.toggle-switch').click();
   
-  // Wait for the filter to apply
-  await page.waitForTimeout(500);
+  // Wait for the UI to update after applying filter
+  await page.waitForSelector('.audiobook-card, .no-results');
   
   // Get the filtered count of audiobooks
   const filteredCount = await page.locator('.audiobook-card').count();
@@ -40,7 +40,7 @@ test('Multi-cast filter should work correctly', async ({ page }) => {
   
   // Disable the toggle and check that books are restored
   await page.locator('.toggle-switch').click();
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.audiobook-card');
   
   const restoredCount = await page.locator('.audiobook-card').count();
   expect(restoredCount).toEqual(initialCount);
@@ -48,14 +48,14 @@ test('Multi-cast filter should work correctly', async ({ page }) => {
   // Test with search functionality
   // Enter a search term
   await page.locator('.search-input').fill('a');
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.audiobook-card, .no-results');
   
   // Get the count after search
   const searchCount = await page.locator('.audiobook-card').count();
   
   // Enable multi-cast filter again while search is active
   await page.locator('.toggle-switch').click();
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.audiobook-card, .no-results');
   
   // Get the count with both filters
   const combinedCount = await page.locator('.audiobook-card').count();

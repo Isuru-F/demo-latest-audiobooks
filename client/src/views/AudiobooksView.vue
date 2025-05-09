@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
@@ -43,7 +43,8 @@ const filteredAudiobooks = computed(() => {
   if (multiCastOnly.value) {
     filtered = filtered.filter(audiobook => {
       // Check if the audiobook has more than one narrator
-      return Array.isArray(audiobook.narrators) && audiobook.narrators.length > 1;
+      // Include null check to prevent runtime errors
+      return Array.isArray(audiobook.narrators) && audiobook.narrators && audiobook.narrators.length > 1;
     });
   }
   
