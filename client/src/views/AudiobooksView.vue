@@ -2,50 +2,55 @@
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
+import type { NarratorObject } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 const multiCastOnly = ref(false);
 
+// Helper function to check if a narrator matches the search query
+const isNarratorMatch = (narrator: string | NarratorObject, query: string): boolean => {
+  if (typeof narrator === 'string') {
+    return narrator.toLowerCase().includes(query);
+  } else if (narrator && typeof narrator === 'object') {
+    return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  }
+  return false;
+};
+
 const filteredAudiobooks = computed(() => {
-  let filtered = spotifyStore.audiobooks;
+  const query = searchQuery.value.toLowerCase().trim();
+  const hasQuery = query.length > 0;
   
-  // First apply multi-cast filter if enabled
-  if (multiCastOnly.value) {
-    filtered = filtered.filter(audiobook => {
-      return audiobook.narrators && audiobook.narrators.length > 1;
-    });
-  }
-  
-  // Then apply text search filter if there's a query
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim();
-    filtered = filtered.filter(audiobook => {
-      // Search by audiobook name
-      if (audiobook.name.toLowerCase().includes(query)) {
-        return true;
-      }
-      
-      // Search by author name
-      const authorMatch = audiobook.authors.some(author => 
-        author.name.toLowerCase().includes(query)
-      );
-      
-      // Search by narrator
-      const narratorMatch = audiobook.narrators?.some(narrator => {
-        if (typeof narrator === 'string') {
-          return narrator.toLowerCase().includes(query);
-        } else if (narrator && typeof narrator === 'object') {
-          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-        }
-        return false;
-      });
-      
-      return authorMatch || narratorMatch;
-    });
-  }
-  
-  return filtered;
+  // Combined filter in one pass for better performance
+  return spotifyStore.audiobooks.filter(audiobook => {
+    // Multi-cast filter check
+    if (multiCastOnly.value && (!audiobook.narrators || audiobook.narrators.length <= 1)) {
+      return false;
+    }
+    
+    // If no search query, just return the audiobook (might be filtered by multi-cast)
+    if (!hasQuery) {
+      return true;
+    }
+    
+    // Search by audiobook name
+    if (audiobook.name.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Search by author name
+    const authorMatch = audiobook.authors.some(author => 
+      author.name.toLowerCase().includes(query)
+    );
+    
+    // Search by narrator
+    const narratorMatch = audiobook.narrators?.some(narrator => 
+      isNarratorMatch(narrator, query)
+    );
+    
+    return authorMatch || narratorMatch;
+  });
 });
 
 // Toggle multi-cast filter
@@ -77,6 +82,8 @@ onMounted(() => {
             @click="toggleMultiCast" 
             class="multi-cast-toggle" 
             :class="{ active: multiCastOnly }"
+            :aria-pressed="multiCastOnly"
+            aria-label="Filter for multi-cast audiobooks only"
           >
             Multi-Cast Only
           </button>
@@ -106,14 +113,26 @@ onMounted(() => {
 </template>
 
 <style scoped>
+:root {
+  --primary-color: #8a42ff;
+  --secondary-color: #e942ff;
+  --primary-gradient: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+  --text-color: #2a2d3e;
+  --light-bg: #f0f2fa;
+  --lighter-bg: #ffffff;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+  --primary-shadow: rgba(138, 66, 255, 0.2);
+  --error-color: #e53935;
+}
+
 .hero {
-  background: linear-gradient(135deg, #8a42ff, #e942ff);
+  background: var(--primary-gradient);
   padding: 80px 20px;
   text-align: center;
   color: white;
   margin-bottom: 40px;
   border-radius: 0 0 30px 30px;
-  box-shadow: 0 10px 30px rgba(138, 66, 255, 0.3);
+  box-shadow: 0 10px 30px var(--primary-shadow);
 }
 
 .hero-content {
@@ -151,7 +170,7 @@ onMounted(() => {
 
 .audiobooks h2 {
   font-size: 32px;
-  color: #2a2d3e;
+  color: var(--text-color);
   position: relative;
   display: inline-block;
   margin: 0;
@@ -164,7 +183,7 @@ onMounted(() => {
   left: 0;
   width: 60px;
   height: 4px;
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: var(--primary-gradient);
   border-radius: 2px;
 }
 
@@ -184,30 +203,30 @@ onMounted(() => {
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
-  background: #f0f2fa;
-  color: #2a2d3e;
+  background: var(--light-bg);
+  color: var(--text-color);
   font-size: 16px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 10px var(--shadow-color);
   transition: all 0.3s ease;
 }
 
 .search-input:focus {
   outline: none;
-  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
-  background: #ffffff;
+  box-shadow: 0 4px 15px var(--primary-shadow);
+  background: var(--lighter-bg);
 }
 
 .multi-cast-toggle {
   padding: 10px 20px;
-  background: #f0f2fa;
-  color: #2a2d3e;
+  background: var(--light-bg);
+  color: var(--text-color);
   border: none;
   border-radius: 30px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 10px var(--shadow-color);
 }
 
 .multi-cast-toggle:hover {
@@ -215,10 +234,15 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
+.multi-cast-toggle:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-shadow);
+}
+
 .multi-cast-toggle.active {
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: var(--primary-gradient);
   color: white;
-  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  box-shadow: 0 4px 15px var(--primary-shadow);
 }
 
 .audiobook-grid {
@@ -249,7 +273,7 @@ onMounted(() => {
 .spinner {
   border: 4px solid rgba(138, 66, 255, 0.1);
   border-radius: 50%;
-  border-top: 4px solid #8a42ff;
+  border-top: 4px solid var(--primary-color);
   width: 40px;
   height: 40px;
   animation: spin 1s linear infinite;
@@ -262,13 +286,13 @@ onMounted(() => {
 }
 
 .error p {
-  color: #e53935;
+  color: var(--error-color);
   margin-bottom: 20px;
 }
 
 .error button {
   padding: 10px 20px;
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   border-radius: 20px;
@@ -279,5 +303,10 @@ onMounted(() => {
 
 .error button:hover {
   transform: translateY(-2px);
+}
+
+.error button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-shadow);
 }
 </style>
