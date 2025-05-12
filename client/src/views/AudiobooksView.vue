@@ -5,37 +5,53 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let filtered = spotifyStore.audiobooks;
+  
+  // First apply multi-cast filter if enabled
+  if (multiCastOnly.value) {
+    filtered = filtered.filter(audiobook => {
+      return audiobook.narrators && audiobook.narrators.length > 1;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  // Then apply text search filter if there's a query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = filtered.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
-    
-    return authorMatch || narratorMatch;
-  });
+  }
+  
+  return filtered;
 });
+
+// Toggle multi-cast filter
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+};
 
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
@@ -48,13 +64,22 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="search-controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <button 
+            @click="toggleMultiCast" 
+            class="multi-cast-toggle" 
+            :class="{ active: multiCastOnly }"
+          >
+            Multi-Cast Only
+          </button>
         </div>
       </div>
       
@@ -143,6 +168,12 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.search-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +195,30 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.multi-cast-toggle {
+  padding: 10px 20px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  border: none;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.multi-cast-toggle:hover {
+  background: #e6e8f5;
+  transform: translateY(-2px);
+}
+
+.multi-cast-toggle.active {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
 }
 
 .audiobook-grid {
