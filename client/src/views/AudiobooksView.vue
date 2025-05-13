@@ -17,7 +17,8 @@ const filteredAudiobooks = computed(() => {
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
     }
-    
+
+
     // Search by author name
     const authorMatch = audiobook.authors.some(author => 
       author.name.toLowerCase().includes(query)
@@ -44,6 +45,12 @@ onMounted(() => {
 
 <template>
   <main>
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Discover Audiobooks</h1>
+        <p>Explore a vast collection of audiobooks from your favorite authors and narrators</p>
+      </div>
+    </section>
 
     <section class="audiobooks">
       <div class="audiobooks-header">
