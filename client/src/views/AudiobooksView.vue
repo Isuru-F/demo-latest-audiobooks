@@ -2,39 +2,53 @@
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
+import type { Audiobook } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multicastOnly = ref(false);
+
+const hasMultipleCastMembers = (audiobook: Audiobook) => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let results = spotifyStore.audiobooks;
+  
+  // Apply multicast filter if enabled
+  if (multicastOnly.value) {
+    results = results.filter(hasMultipleCastMembers);
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  // Apply text search if present
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
-    
-    return authorMatch || narratorMatch;
-  });
+  }
+  
+  return results;
 });
 
 onMounted(() => {
@@ -55,6 +69,13 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" v-model="multicastOnly">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Multi-Cast Only</span>
+          </div>
         </div>
       </div>
       
@@ -164,6 +185,64 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  margin-right: 10px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f0f2fa;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: #2a2d3e;
+  font-weight: 500;
 }
 
 .audiobook-grid {
