@@ -13,7 +13,7 @@ const filteredAudiobooks = computed(() => {
   // Filter by multi-cast narrators if toggle is enabled
   if (multiCastOnly.value) {
     filtered = filtered.filter(audiobook => {
-      return audiobook.narrators && audiobook.narrators.length > 1;
+      return audiobook.narrators?.length > 1;
     });
   }
   
@@ -61,15 +61,20 @@ onMounted(() => {
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
         <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
-          <div class="toggle-container">
+          <div class="search-input-group">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
             <label class="toggle-switch">
-              <input type="checkbox" v-model="multiCastOnly">
+              <input 
+                type="checkbox" 
+                v-model="multiCastOnly" 
+                role="switch" 
+                :aria-checked="multiCastOnly.toString()"
+              >
               <span class="toggle-slider"></span>
               <span class="toggle-label">Multi-Cast Only</span>
             </label>
@@ -165,14 +170,19 @@ onMounted(() => {
 .search-container {
   position: relative;
   width: 100%;
-  max-width: 450px;
+  max-width: 550px;
+}
+
+.search-input-group {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
 }
 
 .search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 250px;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -187,11 +197,6 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
-}
-
-.toggle-container {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .toggle-switch {
