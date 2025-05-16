@@ -74,6 +74,21 @@ const formatNarrators = (narrators: any[]) => {
     return 'Narrator';
   }).join(', ');
 };
+
+// Format release date to a readable format
+const formatReleaseDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  
+  // Create a date object from the string
+  const date = new Date(dateStr);
+  
+  // Format the date to display as Month Day, Year
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+};
 </script>
 
 <template>
@@ -89,6 +104,9 @@ const formatNarrators = (narrators: any[]) => {
       </p>
       <p class="audiobook-narrator" v-if="audiobook.narrators && audiobook.narrators.length">
           <span class="label">Narrator:</span> {{ formatNarrators(audiobook.narrators) }}
+      </p>
+      <p class="audiobook-release-date" v-if="audiobook.release_date">
+          <span class="label">Released:</span> {{ formatReleaseDate(audiobook.release_date) }}
       </p>
       <p class="audiobook-details">
         <span>{{ formatDuration(audiobook.duration_ms) }}</span>
@@ -114,6 +132,7 @@ const formatNarrators = (narrators: any[]) => {
               <h2>{{ audiobook.name }}</h2>
               <p class="modal-authors">By {{ audiobook.authors.map(author => author.name).join(', ') }}</p>
               <p class="modal-publisher">Publisher: {{ audiobook.publisher }}</p>
+              <p class="modal-release-date" v-if="audiobook.release_date">Released: {{ formatReleaseDate(audiobook.release_date) }}</p>
               <p class="modal-details">
                 <span>{{ formatDuration(audiobook.duration_ms) }}</span>
               </p>
@@ -201,7 +220,7 @@ const formatNarrators = (narrators: any[]) => {
   text-overflow: ellipsis;
 }
 
-.audiobook-narrator {
+.audiobook-narrator, .audiobook-release-date {
   color: #8a8c99;
   margin: 0 0 10px;
   font-size: 13px;
@@ -350,7 +369,7 @@ const formatNarrators = (narrators: any[]) => {
   font-size: 16px;
 }
 
-.modal-publisher {
+.modal-publisher, .modal-release-date {
   color: #8a8c99;
   margin: 0 0 8px;
   font-size: 14px;
