@@ -61,6 +61,7 @@ When creating a pull request, follow these guidelines
 - When create a GitHub PR be sure to include all the items below - to ensure it's formatted correctly use the flag --body-file with a temp pr-description.md file that isn't commited.
 - Reference any relevant issues in the PR description 
 - Include a high level summary of the changes made in the PR description for a product manager to understand
+- When pushing a branch in GitHub always push to origin and never create a Fork
 - Include another summary of the changes made in the PR description for a developer to understand (Technical Notes)
 - Include a mermaid digram explain how the new features work in the PR description. This is to help a human quickly get up to speed as to what was changed and why. This is very important.
 - Ensure all CI checks pass before merging (unit tests)
