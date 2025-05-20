@@ -5,14 +5,27 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  // Filter based on search query and multi-cast filter
+  let filtered = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter if enabled
+  if (multiCastOnly.value) {
+    filtered = filtered.filter(audiobook => {
+      return Array.isArray(audiobook.narrators) && audiobook.narrators.length > 1;
+    });
   }
   
+  // If no search query, return the filtered list
+  if (!searchQuery.value.trim()) {
+    return filtered;
+  }
+  
+  // Apply text search filter
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return filtered.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -55,6 +68,13 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+          <div class="toggle-container">
+            <label class="toggle-switch">
+              <input type="checkbox" v-model="multiCastOnly">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -67,7 +87,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your search criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -145,11 +167,14 @@ onMounted(() => {
 
 .search-container {
   position: relative;
-  width: 300px;
+  width: 450px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .search-input {
-  width: 100%;
+  flex: 1;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -166,6 +191,68 @@ onMounted(() => {
   background: #ffffff;
 }
 
+/* Toggle Switch Styles */
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  background-color: #f0f2fa;
+  border-radius: 20px;
+  transition: .4s;
+  margin-right: 8px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: .4s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+input:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  color: #2a2d3e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+input:checked ~ .toggle-label {
+  color: #8a42ff;
+}
+
 .audiobook-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -176,6 +263,23 @@ onMounted(() => {
 @media (min-width: 1200px) {
   .audiobook-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .search-container {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .toggle-container {
+    margin-top: 10px;
+  }
+  
+  .audiobooks-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
