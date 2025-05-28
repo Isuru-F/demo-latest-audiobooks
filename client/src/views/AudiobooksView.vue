@@ -88,7 +88,11 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly && !searchQuery.trim() ? 'No multi-cast audiobooks available.' : 
+             multiCastOnly && searchQuery.trim() ? 'No multi-cast audiobooks match your search.' :
+             'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
