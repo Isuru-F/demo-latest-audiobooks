@@ -7,14 +7,35 @@ const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 const multiCastOnly = ref(false);
 
+// Helper function to safely check if audiobook has multiple narrators
+const hasMultipleNarrators = (audiobook: any) => {
+  if (!audiobook.narrators) return false;
+  if (Array.isArray(audiobook.narrators)) return audiobook.narrators.length > 1;
+  if (typeof audiobook.narrators === 'string') return false; // Single narrator as string
+  return false;
+};
+
+// Helper function to search in narrator names
+const narratorMatchesQuery = (narrators: any, query: string) => {
+  if (!narrators) return false;
+  if (!Array.isArray(narrators)) return false;
+  
+  return narrators.some(narrator => {
+    if (typeof narrator === 'string') {
+      return narrator.toLowerCase().includes(query);
+    } else if (narrator && typeof narrator === 'object' && narrator.name) {
+      return narrator.name.toLowerCase().includes(query);
+    }
+    return false;
+  });
+};
+
 const filteredAudiobooks = computed(() => {
   let filtered = spotifyStore.audiobooks;
   
   // Apply multi-cast filter first
   if (multiCastOnly.value) {
-    filtered = filtered.filter(audiobook => {
-      return audiobook.narrators && audiobook.narrators.length > 1;
-    });
+    filtered = filtered.filter(hasMultipleNarrators);
   }
   
   // Then apply search filter
@@ -32,14 +53,7 @@ const filteredAudiobooks = computed(() => {
       );
       
       // Search by narrator
-      const narratorMatch = audiobook.narrators?.some(narrator => {
-        if (typeof narrator === 'string') {
-          return narrator.toLowerCase().includes(query);
-        } else if (narrator && typeof narrator === 'object') {
-          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-        }
-        return false;
-      });
+      const narratorMatch = narratorMatchesQuery(audiobook.narrators, query);
       
       return authorMatch || narratorMatch;
     });
@@ -206,6 +220,7 @@ onMounted(() => {
 .multi-cast-toggle {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .toggle-switch {
@@ -221,13 +236,12 @@ onMounted(() => {
 }
 
 .toggle-slider {
-  position: relative;
   width: 48px;
   height: 24px;
   background: #e0e0e0;
   border-radius: 24px;
-  transition: all 0.3s ease;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: background 0.3s ease;
 }
 
 .toggle-slider::before {
@@ -239,8 +253,8 @@ onMounted(() => {
   background: white;
   top: 2px;
   left: 2px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .toggle-input:checked + .toggle-slider {

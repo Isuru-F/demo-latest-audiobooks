@@ -33,7 +33,7 @@ header {
 .logo h1 {
   margin: 0;
   font-size: 28px;
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: linear-gradient(90deg, #ffd700, #ffb300);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -69,7 +69,7 @@ nav a.router-link-active::after {
   left: 0;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: linear-gradient(90deg, #ffd700, #ffb300);
   border-radius: 1.5px;
 }
 
