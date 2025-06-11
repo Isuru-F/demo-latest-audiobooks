@@ -214,7 +214,7 @@ onMounted(() => {
 }
 
 .toggle-switch.active .toggle-label {
-  color: #8a42ff;
+  color: #ff8c42;
   font-weight: 600;
 }
 
@@ -246,7 +246,7 @@ onMounted(() => {
 }
 
 .toggle-input:checked + .toggle-slider {
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: linear-gradient(90deg, #ffb366, #ff8c42);
 }
 
 .toggle-input:checked + .toggle-slider:before {
