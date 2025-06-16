@@ -64,7 +64,7 @@ jobs:
           node-version: '22'
           
       - name: Install AMP CLI
-        run: npm install -g @sourcegraph/amp
+        run: npm install -g @sourcegraph/amp@latest
 
       - name: Run AMP review
         id: amp_review
@@ -81,7 +81,7 @@ jobs:
           } > amp_input.txt
           
           # Run AMP with the combined input - removing the unsupported --stdin flag
-          cat amp_input.txt | amp --no-color --interactive --no-notifications > amp_review.txt
+          cat amp_input.txt | amp  --interactive  > amp_review.txt
 
       - name: Post review comment
         if: steps.diff.outputs.DIFF_SIZE != '0'
