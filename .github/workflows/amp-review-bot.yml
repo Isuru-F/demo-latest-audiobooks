@@ -99,7 +99,7 @@ jobs:
             cp amp_full_output.txt amp_review.txt
           fi
 
-      - name: Create GitHub issues from review
+      - name: Create individual PR comments from review
         if: steps.diff.outputs.DIFF_SIZE != '0'
         uses: actions/github-script@v7
         with:
@@ -122,7 +122,7 @@ jobs:
               let currentIssue = null;
               let severity = 'MEDIUM';
               
-              // Extract severity from the content
+              // Extract overall severity from the content
               const severityMatch = content.match(/\*\*Severity:\s*(\w+)\*\*/i);
               if (severityMatch) {
                 severity = severityMatch[1].toUpperCase();
@@ -131,7 +131,7 @@ jobs:
               for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
                 
-                // Look for numbered issues
+                // Look for numbered issues in the format: "1. **Title** - Description"
                 const issueMatch = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*-\s*(.+)/);
                 if (issueMatch) {
                   if (currentIssue) {
@@ -143,32 +143,11 @@ jobs:
                     description: issueMatch[2],
                     body: '',
                     severity: severity,
-                    labels: []
+                    priority: severity === 'HIGH' || severity === 'CRITICAL' ? '🔴 HIGH' : 
+                             severity === 'MEDIUM' ? '🟡 MEDIUM' : '🟢 LOW'
                   };
                   
-                  // Add labels based on content and severity
-                  if (line.toLowerCase().includes('test')) {
-                    currentIssue.labels.push('testing');
-                  }
-                  if (line.toLowerCase().includes('security')) {
-                    currentIssue.labels.push('security');
-                  }
-                  if (line.toLowerCase().includes('performance')) {
-                    currentIssue.labels.push('performance');
-                  }
-                  
-                  // Add severity label
-                  if (severity === 'HIGH' || severity === 'CRITICAL') {
-                    currentIssue.labels.push('high priority');
-                  } else if (severity === 'MEDIUM') {
-                    currentIssue.labels.push('medium priority');
-                  } else {
-                    currentIssue.labels.push('low priority');
-                  }
-                  
-                  currentIssue.labels.push('code review');
-                  
-                } else if (currentIssue && line.length > 0 && !line.startsWith('#')) {
+                } else if (currentIssue && line.length > 0 && !line.startsWith('#') && !line.startsWith('**')) {
                   // Add additional context to current issue
                   currentIssue.body += line + '\n';
                 }
@@ -182,88 +161,93 @@ jobs:
             }
             
             const issues = parseReviewIssues(reviewContent);
-            const createdIssues = [];
             
-            // Create GitHub issues for each parsed issue
-            for (const issue of issues) {
-              try {
-                const issueBody = '**Generated from PR #' + context.issue.number + ' Code Review**\n\n' + 
-                  issue.description + '\n\n' + 
-                  issue.body + '\n\n' +
-                  '**Severity:** ' + issue.severity + '\n\n' +
-                  '**Related PR:** #' + context.issue.number + '\n\n' +
-                  '---\n*This issue was automatically created by AMP Code Review Bot*';
-                
-                const { data: createdIssue } = await github.rest.issues.create({
+            // First, remove existing bot comments to avoid clutter
+            try {
+              const { data: existingComments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              const botComments = existingComments.filter(comment => 
+                comment.body.includes('🤖 **Code Review Issue**') || 
+                comment.body.includes('🤖 AMP Code Review Summary')
+              );
+              
+              for (const comment of botComments) {
+                await github.rest.issues.deleteComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  title: '[Code Review] ' + issue.title,
-                  body: issueBody,
-                  labels: issue.labels
+                  comment_id: comment.id
+                });
+                console.log('Deleted existing bot comment #' + comment.id);
+              }
+            } catch (error) {
+              console.log('Note: Could not clean up existing comments:', error.message);
+            }
+            
+            const createdComments = [];
+            
+            // Create individual PR comments for each parsed issue
+            for (let i = 0; i < issues.length; i++) {
+              const issue = issues[i];
+              try {
+                const commentBody = '## 🤖 **Code Review Issue #' + (i + 1) + '**\n\n' +
+                  '### ' + issue.priority + ' - ' + issue.title + '\n\n' +
+                  issue.description + '\n\n' +
+                  (issue.body ? '**Additional Details:**\n' + issue.body + '\n' : '') +
+                  '---\n*Generated by AMP Code Review Bot for PR #' + context.issue.number + '*';
+                
+                const { data: createdComment } = await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: commentBody
                 });
                 
-                createdIssues.push({
-                  number: createdIssue.number,
+                createdComments.push({
+                  id: createdComment.id,
                   title: issue.title,
-                  url: createdIssue.html_url
+                  priority: issue.priority
                 });
                 
-                console.log('Created issue #' + createdIssue.number + ': ' + issue.title);
+                console.log('Created comment for: ' + issue.title);
               } catch (error) {
-                console.error('Error creating issue for ' + issue.title + ':', error);
+                console.error('Error creating comment for ' + issue.title + ':', error);
               }
             }
             
             // Create summary comment on PR
             let summaryBody = '## 🤖 AMP Code Review Summary\n\n';
             
-            if (createdIssues.length > 0) {
-              summaryBody += 'Found **' + createdIssues.length + '** issues that need attention:\n\n';
+            if (createdComments.length > 0) {
+              summaryBody += 'Found **' + createdComments.length + '** issues that need attention. See individual comments above for details.\n\n';
               
-              createdIssues.forEach((issue, index) => {
-                summaryBody += (index + 1) + '. [' + issue.title + '](' + issue.url + ') - Issue #' + issue.number + '\n';
+              summaryBody += '**Issues Summary:**\n';
+              createdComments.forEach((comment, index) => {
+                summaryBody += (index + 1) + '. ' + comment.priority + ' - ' + comment.title + '\n';
               });
               
               summaryBody += '\n**Next Steps:**\n';
-              summaryBody += '- Review and address each issue linked above\n';
-              summaryBody += '- Close issues as they are resolved\n';
-              summaryBody += '- Re-request review when ready\n\n';
+              summaryBody += '- Address each issue listed in the comments above\n';
+              summaryBody += '- Reply to individual comments when issues are resolved\n';
+              summaryBody += '- Re-request review when all issues are addressed\n\n';
             } else {
-              summaryBody += 'No specific issues found to create. ✅\n\n';
+              summaryBody += 'No specific issues found to comment on. ✅\n\n';
               summaryBody += '**Full Review:**\n\n```\n' + reviewContent + '\n```';
             }
             
-            summaryBody += '\n---\n*Issues created from PR review on ' + new Date().toISOString().split('T')[0] + '*';
+            summaryBody += '\n---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
             
             try {
-              // Find existing summary comment to update
-              const { data: comments } = await github.rest.issues.listComments({
+              const { data: summaryComment } = await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
+                body: summaryBody
               });
-              
-              const botComment = comments.find(comment => 
-                comment.body.includes('🤖 AMP Code Review Summary')
-              );
-              
-              if (botComment) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: botComment.id,
-                  body: summaryBody
-                });
-                console.log('Updated existing summary comment');
-              } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: summaryBody
-                });
-                console.log('Created new summary comment');
-              }
+              console.log('Created summary comment');
             } catch (error) {
               console.error('Error posting summary comment:', error);
             }
