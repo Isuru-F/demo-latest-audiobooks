@@ -74,10 +74,8 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR, look at the diff and suggest improvements, please also include the severity of your review. If you have a reccomended prompt to fix these issues please also include it in your comment. Check to see if there are enough unit tests for any new features that have been added. "
-            echo ""
-            echo "DIFF:"
-            cat pr_diff.txt
+            echo "Please review this PR, look at the diff and suggest improvements, please also include the severity of your review. If you have a reccomended prompt to fix these issues please also include it in your comment. Check to see if there are enough unit tests for any new features that have been added. Do not use TODOS"
+          
           } > amp_input.txt
           
           # Run AMP with the combined input
