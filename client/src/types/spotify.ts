@@ -90,3 +90,16 @@ export interface AudiobooksResponse {
     total: number;
   };
 }
+
+export interface Review {
+  id: string;
+  audiobookId: string;
+  rating: number;
+  comment: string | null;
+  timestamp: string;
+}
+
+export interface AverageRating {
+  average: number;
+  count: number;
+}

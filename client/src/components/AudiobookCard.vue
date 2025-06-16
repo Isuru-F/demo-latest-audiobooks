@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { Audiobook } from '@/types/spotify';
+import ReviewForm from './ReviewForm.vue';
+import ReviewList from './ReviewList.vue';
 
 const props = defineProps<{
   audiobook: Audiobook
 }>();
 
 const showModal = ref(false);
+const reviewListRef = ref<InstanceType<typeof ReviewList> | null>(null);
 
 // Use a separate function to open the modal
 const openModal = (event: Event) => {
@@ -74,6 +77,10 @@ const formatNarrators = (narrators: any[]) => {
     return 'Narrator';
   }).join(', ');
 };
+
+const handleReviewSubmitted = () => {
+  reviewListRef.value?.loadReviews();
+};
 </script>
 
 <template>
@@ -120,12 +127,23 @@ const formatNarrators = (narrators: any[]) => {
             </div>
           </div>
           <div class="modal-body">
-            <h3>Description</h3>
-            <div class="description" v-html="audiobook.description"></div>
-          </div>
-          <div class="modal-footer">
-            <a :href="audiobook.external_urls.spotify" target="_blank" class="spotify-link">Listen on Spotify</a>
-          </div>
+          <h3>Description</h3>
+          <div class="description" v-html="audiobook.description"></div>
+            
+            <div class="reviews-section">
+            <ReviewForm 
+                :audiobook-id="audiobook.id" 
+                 @review-submitted="handleReviewSubmitted"
+               />
+               <ReviewList 
+                 ref="reviewListRef"
+                 :audiobook-id="audiobook.id" 
+               />
+             </div>
+           </div>
+           <div class="modal-footer">
+             <a :href="audiobook.external_urls.spotify" target="_blank" class="spotify-link">Listen on Spotify</a>
+           </div>
         </div>
       </div>
       </transition>
@@ -392,6 +410,12 @@ const formatNarrators = (narrators: any[]) => {
 
 .modal-body .description p {
   margin-bottom: 1em;
+}
+
+.reviews-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #4a4d5e;
 }
 
 .modal-footer {
