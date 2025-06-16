@@ -3,14 +3,22 @@ const spotifyService = require('../../src/services/spotify.service');
 
 jest.mock('axios');
 
+// Test constants - clearly marked as mock values for testing only
+// These are NOT real secrets and are safe to use in tests
+const MOCK_ACCESS_TOKEN = process.env.TEST_ACCESS_TOKEN || 'test-access-token-not-real';
+const MOCK_EXPIRES_IN = 3600;
+
 describe('SpotifyService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear token cache
+    spotifyService.authToken = null;
+    spotifyService.tokenExpiration = null;
     // Mock token response
     axios.mockResolvedValueOnce({
       data: {
-        access_token: 'mock-token',
-        expires_in: 3600
+        access_token: MOCK_ACCESS_TOKEN,
+        expires_in: MOCK_EXPIRES_IN
       }
     });
   });
@@ -48,17 +56,21 @@ describe('SpotifyService', () => {
         offset: 0
       });
       expect(audiobooksCall.headers).toEqual({
-        'Authorization': 'Bearer mock-token'
+        'Authorization': `Bearer ${MOCK_ACCESS_TOKEN}`
       });
     });
 
     it('should throw an error when API call fails', async () => {
-      // Replace axios mock to make the token request succeed but the audiobooks call fail
+      // Clear token cache and mock fresh calls
+      spotifyService.authToken = null;
+      spotifyService.tokenExpiration = null;
       axios.mockReset();
+      
+      // Mock successful getToken() call first, then make the audiobooks API call fail
       axios.mockResolvedValueOnce({
         data: {
-          access_token: 'mock-token',
-          expires_in: 3600
+          access_token: MOCK_ACCESS_TOKEN,
+          expires_in: MOCK_EXPIRES_IN
         }
       });
       axios.mockRejectedValueOnce(new Error('API error'));

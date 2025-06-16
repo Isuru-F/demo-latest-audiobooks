@@ -1,0 +1,67 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Authenticate Snyk
+        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        if: env.SNYK_TOKEN != ''
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: ./client
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: ./server
+
+      - name: Run Snyk SCA test on client
+        run: snyk test --severity-threshold=high --all-projects
+        working-directory: ./client
+        continue-on-error: true
+
+      - name: Run Snyk SCA test on server
+        run: snyk test --severity-threshold=high --all-projects
+        working-directory: ./server
+        continue-on-error: true
+
+      - name: Run Snyk Code test on client
+        run: snyk code test --severity-threshold=high
+        working-directory: ./client
+        continue-on-error: true
+
+      - name: Run Snyk Code test on server
+        run: snyk code test --severity-threshold=high
+        working-directory: ./server
+        continue-on-error: true
+
+      - name: Monitor dependencies (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd client && snyk monitor --project-name="demo-audiobooks-client"
+          cd ../server && snyk monitor --project-name="demo-audiobooks-server"
