@@ -80,8 +80,26 @@ jobs:
             cat pr_diff.txt
           } > amp_input.txt
           
-          # Run AMP with the combined input - removing the unsupported --stdin flag
-          cat amp_input.txt | amp --no-color --no-notifications > amp_review.txt
+          # Run AMP with the combined input
+          cat amp_input.txt | amp --no-color --no-notifications > amp_full_output.txt
+          
+          # Extract only the review content after any CLI output
+          # Look for common patterns that indicate the start of the actual review
+          if grep -q "AMP Code Review\|PR Review\|Code Review\|Review:" amp_full_output.txt; then
+            # Find the line where the actual review starts and extract from there
+            awk '/AMP Code Review|PR Review|Code Review|Review:/{found=1} found' amp_full_output.txt > amp_review.txt
+          elif grep -q "Severity:\|Critical Issues\|Issues:\|Analysis:" amp_full_output.txt; then
+            # Alternative patterns for review content
+            awk '/Severity:|Critical Issues|Issues:|Analysis:/{found=1} found' amp_full_output.txt > amp_review.txt
+          else
+            # If no specific pattern found, try to remove common CLI prefixes
+            sed '/^╭\|^│\|^╰\|^Update TODOs\|^TODOs:/d' amp_full_output.txt | sed '/^$/N;/^\n$/d' > amp_review.txt
+          fi
+          
+          # If the filtered file is empty or very small, fall back to the full output
+          if [ ! -s amp_review.txt ] || [ $(wc -c < amp_review.txt) -lt 50 ]; then
+            cp amp_full_output.txt amp_review.txt
+          fi
 
       - name: Post review comment
         if: steps.diff.outputs.DIFF_SIZE != '0'
