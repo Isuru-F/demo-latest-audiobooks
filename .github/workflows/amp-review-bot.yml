@@ -74,8 +74,35 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR, look at the diff and suggest improvements, please also include the severity of your review. If you have a reccomended prompt to fix these issues please also include it in your comment. Check to see if there are enough unit tests for any new features that have been added. Do not use TODOS"
-          
+            echo "Please review this PR and provide feedback in the following EXACT format:"
+            echo ""
+            echo "REQUIRED FORMAT:"
+            echo "**Severity: [HIGH|MEDIUM|LOW]**"
+            echo ""
+            echo "### Issues Found:"
+            echo ""
+            echo "1. **🔴 HIGH - [Issue Title]**"
+            echo "   - [Description of the issue]"
+            echo "   - [Additional context if needed]"
+            echo ""
+            echo "2. **🟡 MEDIUM - [Issue Title]**"
+            echo "   - [Description of the issue]"
+            echo ""
+            echo "3. **🟢 LOW - [Issue Title]**"
+            echo "   - [Description of the issue]"
+            echo ""
+            echo "IMPORTANT: Each issue MUST be numbered and start with priority emoji (🔴/🟡/🟢) and priority level (HIGH/MEDIUM/LOW)."
+            echo ""
+            echo "Please analyze the following diff for:"
+            echo "- Missing or insufficient unit tests"
+            echo "- Security vulnerabilities"
+            echo "- Performance issues"
+            echo "- Code quality problems"
+            echo "- Architecture concerns"
+            echo "- Best practices violations"
+            echo ""
+            echo "DIFF:"
+            cat pr_diff.txt
           } > amp_input.txt
           
           # Run AMP with the combined input
@@ -115,46 +142,152 @@ jobs:
               reviewContent = 'Error generating review.';
             }
             
-            // Parse review content to extract individual issues
+            // Parse review content to extract individual issues with multiple fallback patterns
             function parseReviewIssues(content) {
               const issues = [];
               const lines = content.split('\n');
               let currentIssue = null;
               let severity = 'MEDIUM';
               
-              // Extract overall severity from the content
-              const severityMatch = content.match(/\*\*Severity:\s*(\w+)\*\*/i);
-              if (severityMatch) {
-                severity = severityMatch[1].toUpperCase();
+              // Extract overall severity from the content (multiple patterns)
+              const severityPatterns = [
+                /\*\*Severity:\s*([\w-]+)\*\*/i,
+                /Severity:\s*\*\*([\w-]+)\*\*/i,
+                /\*\*Severity\*\*:\s*([\w-]+)/i
+              ];
+              
+              for (const pattern of severityPatterns) {
+                const match = content.match(pattern);
+                if (match) {
+                  severity = match[1].toUpperCase();
+                  break;
+                }
               }
+              
+              console.log('Parsing content for issues... Overall severity: ' + severity);
+              
+              // Multiple patterns to match numbered issues
+              const issuePatterns = [
+                // Pattern 1: "1. **🔴 HIGH - Title**"
+                /^(\d+)\.\s+\*\*([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+?)\*\*\s*$/,
+                // Pattern 2: "1. **Title**"
+                /^(\d+)\.\s+\*\*(.+?)\*\*\s*$/,
+                // Pattern 3: "1. Title (no bold)"
+                /^(\d+)\.\s+([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+)$/,
+                // Pattern 4: Bullet points "- **Title**"
+                /^-\s+\*\*(.+?)\*\*\s*$/
+              ];
               
               for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
+                let matched = false;
                 
-                // Look for numbered issues in the format: "1. **Title** - Description"
-                const issueMatch = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*-\s*(.+)/);
-                if (issueMatch) {
-                  if (currentIssue) {
-                    issues.push(currentIssue);
+                // Try each pattern
+                for (let patternIndex = 0; patternIndex < issuePatterns.length; patternIndex++) {
+                  const pattern = issuePatterns[patternIndex];
+                  const match = line.match(pattern);
+                  
+                  if (match) {
+                    // Finish previous issue
+                    if (currentIssue) {
+                      issues.push(currentIssue);
+                    }
+                    
+                    let issueNumber, emoji, priorityText, title;
+                    
+                    if (patternIndex === 0) {
+                      // Pattern 1: Full format with emoji and priority
+                      issueNumber = match[1];
+                      emoji = match[2] || '🟡';
+                      priorityText = match[3] || 'MEDIUM';
+                      title = match[4];
+                    } else if (patternIndex === 1) {
+                      // Pattern 2: Just number and title
+                      issueNumber = match[1];
+                      title = match[2];
+                      // Extract emoji and priority from title if present
+                      const titleMatch = title.match(/^([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+)$/);
+                      if (titleMatch) {
+                        emoji = titleMatch[1] || '🟡';
+                        priorityText = titleMatch[2] || 'MEDIUM';
+                        title = titleMatch[3];
+                      } else {
+                        emoji = '🟡';
+                        priorityText = 'MEDIUM';
+                      }
+                    } else if (patternIndex === 2) {
+                      // Pattern 3: Simple numbered list
+                      issueNumber = match[1];
+                      emoji = match[2] || '🟡';
+                      priorityText = match[3] || 'MEDIUM';
+                      title = match[4];
+                    } else {
+                      // Pattern 4: Bullet point
+                      issueNumber = (issues.length + 1).toString();
+                      title = match[1];
+                      emoji = '🟡';
+                      priorityText = 'MEDIUM';
+                    }
+                    
+                    // Determine priority display
+                    let priority;
+                    if (priorityText === 'HIGH' || emoji === '🔴') {
+                      priority = '🔴 HIGH';
+                    } else if (priorityText === 'LOW' || emoji === '🟢') {
+                      priority = '🟢 LOW';
+                    } else {
+                      priority = '🟡 MEDIUM';
+                    }
+                    
+                    currentIssue = {
+                      title: title.trim(),
+                      description: '',
+                      body: '',
+                      severity: severity,
+                      priority: priority,
+                      number: issueNumber
+                    };
+                    
+                    console.log('Found issue #' + issueNumber + ' (' + priority + '): ' + title.trim());
+                    matched = true;
+                    break;
                   }
-                  
-                  currentIssue = {
-                    title: issueMatch[1],
-                    description: issueMatch[2],
-                    body: '',
-                    severity: severity,
-                    priority: severity === 'HIGH' || severity === 'CRITICAL' ? '🔴 HIGH' : 
-                             severity === 'MEDIUM' ? '🟡 MEDIUM' : '🟢 LOW'
-                  };
-                  
-                } else if (currentIssue && line.length > 0 && !line.startsWith('#') && !line.startsWith('**')) {
-                  // Add additional context to current issue
-                  currentIssue.body += line + '\n';
+                }
+                
+                // If not an issue header, check if it's content for current issue
+                if (!matched && currentIssue) {
+                  if (line.startsWith('- ')) {
+                    // This is a description line
+                    if (!currentIssue.description) {
+                      currentIssue.description = line.substring(2).trim();
+                    } else {
+                      currentIssue.body += line + '\n';
+                    }
+                  } else if (line.length > 0 && !line.startsWith('#') && !line.startsWith('**') && !line.startsWith('```') && !line.startsWith('---')) {
+                    // Add additional context to current issue
+                    currentIssue.body += line + '\n';
+                  }
                 }
               }
               
               if (currentIssue) {
                 issues.push(currentIssue);
+              }
+              
+              console.log('Parsed ' + issues.length + ' issues total');
+              
+              // If no issues found, try to create at least one from the content
+              if (issues.length === 0) {
+                console.log('No structured issues found, creating generic issue from content');
+                const fallbackIssue = {
+                  title: 'Code Review Feedback',
+                  description: 'Please review the detailed feedback below',
+                  body: content.substring(0, 500) + (content.length > 500 ? '...' : ''),
+                  severity: severity,
+                  priority: '🟡 MEDIUM',
+                  number: '1'
+                };
+                issues.push(fallbackIssue);
               }
               
               return issues;
