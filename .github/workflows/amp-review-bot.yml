@@ -149,23 +149,35 @@ jobs:
               reviewContent = 'Error generating review.';
             }
             
-            // Parse diff to understand file structure and line mappings
+            // Parse diff to understand file structure and line mappings with positions
             function parseDiffFiles(diffContent) {
               const files = {};
               const lines = diffContent.split('\n');
               let currentFile = null;
               let oldLineNum = 0;
               let newLineNum = 0;
+              let diffPosition = -1; // Track position in diff
               
-              for (const line of lines) {
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
                 // Match file headers: diff --git a/file b/file
                 const fileMatch = line.match(/^diff --git a\/(.+) b\/(.+)$/);
                 if (fileMatch) {
                   currentFile = fileMatch[2]; // Use the 'b' version (new file)
                   files[currentFile] = {
                     lineMap: {}, // maps new line numbers to diff positions
-                    diffHunks: []
+                    diffHunks: [],
+                    hasChanges: false
                   };
+                  diffPosition = -1; // Reset position for new file
+                  continue;
+                }
+                
+                // Skip index and file mode lines
+                if (line.startsWith('index ') || line.startsWith('new file') || 
+                    line.startsWith('deleted file') || line.startsWith('--- ') || 
+                    line.startsWith('+++ ')) {
                   continue;
                 }
                 
@@ -174,21 +186,47 @@ jobs:
                 if (hunkMatch && currentFile) {
                   oldLineNum = parseInt(hunkMatch[1]);
                   newLineNum = parseInt(hunkMatch[2]);
+                  diffPosition++; // Hunk header counts as a position
+                  files[currentFile].diffHunks.push({
+                    oldStart: oldLineNum,
+                    newStart: newLineNum,
+                    position: diffPosition
+                  });
                   continue;
                 }
                 
-                // Track line numbers for mapping
-                if (currentFile) {
+                // Track line numbers and positions for mapping
+                if (currentFile && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' '))) {
+                  diffPosition++; // Increment position for content lines
+                  
                   if (line.startsWith('+') && !line.startsWith('+++')) {
-                    // New line added
-                    files[currentFile].lineMap[newLineNum] = { type: 'added', line: newLineNum };
+                    // New line added - this can be commented on
+                    files[currentFile].lineMap[newLineNum] = { 
+                      type: 'added', 
+                      line: newLineNum,
+                      position: diffPosition,
+                      side: 'RIGHT'
+                    };
+                    files[currentFile].hasChanges = true;
                     newLineNum++;
                   } else if (line.startsWith('-') && !line.startsWith('---')) {
-                    // Line removed
+                    // Line removed - can be commented on the left side
+                    files[currentFile].lineMap[oldLineNum + '_deleted'] = { 
+                      type: 'deleted', 
+                      line: oldLineNum,
+                      position: diffPosition,
+                      side: 'LEFT'
+                    };
+                    files[currentFile].hasChanges = true;
                     oldLineNum++;
                   } else if (line.startsWith(' ')) {
-                    // Context line (unchanged)
-                    files[currentFile].lineMap[newLineNum] = { type: 'context', line: newLineNum };
+                    // Context line (unchanged) - can be commented on
+                    files[currentFile].lineMap[newLineNum] = { 
+                      type: 'context', 
+                      line: newLineNum,
+                      position: diffPosition,
+                      side: 'RIGHT'
+                    };
                     oldLineNum++;
                     newLineNum++;
                   }
@@ -281,6 +319,14 @@ jobs:
             const diffFiles = parseDiffFiles(diffContent);
             const issues = parseReviewIssuesWithLocation(reviewContent);
             
+            // Get the commit SHA for the PR head
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            const commitSha = pr.head.sha;
+            
             // Clean up existing review comments
             try {
               const { data: existingReviews } = await github.rest.pulls.listReviews({
@@ -320,6 +366,43 @@ jobs:
                 continue;
               }
               
+              // Find the closest line in the diff for positioning
+              const fileData = diffFiles[issue.file];
+              let diffPosition = null;
+              let actualLine = issue.line;
+              
+              // First try exact line match
+              if (fileData.lineMap[issue.line]) {
+                diffPosition = fileData.lineMap[issue.line].position;
+              } else {
+                // Find closest line with changes
+                let closestLine = null;
+                let minDistance = Infinity;
+                
+                for (const [lineKey, lineData] of Object.entries(fileData.lineMap)) {
+                  if (lineKey.includes('_deleted')) continue;
+                  const lineNum = parseInt(lineKey);
+                  const distance = Math.abs(lineNum - issue.line);
+                  if (distance < minDistance && lineData.type !== 'context') {
+                    minDistance = distance;
+                    closestLine = lineNum;
+                    diffPosition = lineData.position;
+                    actualLine = lineNum;
+                  }
+                }
+                
+                if (!diffPosition && fileData.diffHunks.length > 0) {
+                  // Fallback to first hunk position
+                  diffPosition = fileData.diffHunks[0].position + 1;
+                  actualLine = fileData.diffHunks[0].newStart;
+                }
+              }
+              
+              if (!diffPosition) {
+                console.log('Could not find diff position for ' + issue.file + ':' + issue.line);
+                continue;
+              }
+              
               const commentBody = '**' + issue.priority + ' - ' + issue.title + '**\n\n' +
                 issue.description + '\n\n' +
                 (issue.suggestion ? '**Suggestion:** ' + issue.suggestion + '\n\n' : '') +
@@ -327,7 +410,7 @@ jobs:
               
               reviewComments.push({
                 path: issue.file,
-                line: issue.line,
+                position: diffPosition,
                 body: commentBody
               });
               
@@ -335,10 +418,10 @@ jobs:
                 title: issue.title,
                 priority: issue.priority,
                 file: issue.file,
-                line: issue.line
+                line: actualLine
               });
               
-              console.log('Prepared inline comment for ' + issue.file + ':' + issue.line);
+              console.log('Prepared inline comment for ' + issue.file + ':' + actualLine + ' (position: ' + diffPosition + ')');
             }
             
             // Create the review with inline comments
@@ -379,10 +462,10 @@ jobs:
                       pull_number: context.issue.number,
                       body: comment.body,
                       path: comment.path,
-                      line: comment.line,
-                      side: 'RIGHT'
+                      position: comment.position,
+                      commit_id: commitSha
                     });
-                    console.log('Created individual comment for ' + comment.path + ':' + comment.line);
+                    console.log('Created individual comment for ' + comment.path + ' at position ' + comment.position);
                   } catch (commentError) {
                     console.error('Error creating individual comment:', commentError);
                   }
