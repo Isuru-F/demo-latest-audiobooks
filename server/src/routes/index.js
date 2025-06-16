@@ -7,4 +7,7 @@ router.get('/spotify/new-releases', spotifyController.getNewReleases);
 router.get('/spotify/genres', spotifyController.getGenres);
 router.get('/spotify/audiobooks', spotifyController.getAudiobooks);
 
+// Reviews API routes
+router.use('/reviews', require('./reviews.routes'));
+
 module.exports = router;

@@ -20,5 +20,15 @@ export default {
     return apiClient.get('/spotify/audiobooks', {
       params: { limit, offset, market }
     });
+  },
+  // Review endpoints
+  createReview(audiobookId: string, rating: number, comment: string) {
+    return apiClient.post('/reviews', { audiobookId, rating, comment });
+  },
+  getReviews(audiobookId: string) {
+    return apiClient.get(`/reviews/${audiobookId}`);
+  },
+  getAverageRating(audiobookId: string) {
+    return apiClient.get(`/reviews/${audiobookId}/average`);
   }
 };

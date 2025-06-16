@@ -1,0 +1,16 @@
+[
+  {
+    "reviewId": "2812d9e4-7420-4bbe-8254-a0431f19130c",
+    "audiobookId": "test-book-123",
+    "rating": 5,
+    "comment": "Amazing audiobook with great narration!",
+    "timestamp": "2025-06-16T03:18:56.332Z"
+  },
+  {
+    "reviewId": "f01c1494-0e43-4c7c-8178-cb77a9a13c67",
+    "audiobookId": "test-book-123",
+    "rating": 4,
+    "comment": "Good storyline but the narrator could be better",
+    "timestamp": "2025-06-16T03:19:09.313Z"
+  }
+]

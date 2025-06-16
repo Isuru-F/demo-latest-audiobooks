@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { Audiobook } from '@/types/spotify';
+import AudiobookReviews from './AudiobookReviews.vue';
 
 const props = defineProps<{
   audiobook: Audiobook
@@ -123,6 +124,11 @@ const formatNarrators = (narrators: any[]) => {
             <h3>Description</h3>
             <div class="description" v-html="audiobook.description"></div>
           </div>
+          
+          <div class="modal-reviews">
+            <AudiobookReviews :audiobook-id="audiobook.id" />
+          </div>
+          
           <div class="modal-footer">
             <a :href="audiobook.external_urls.spotify" target="_blank" class="spotify-link">Listen on Spotify</a>
           </div>
@@ -392,6 +398,13 @@ const formatNarrators = (narrators: any[]) => {
 
 .modal-body .description p {
   margin-bottom: 1em;
+}
+
+.modal-reviews {
+  padding: 0 30px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 20px;
+  padding-top: 20px;
 }
 
 .modal-footer {
