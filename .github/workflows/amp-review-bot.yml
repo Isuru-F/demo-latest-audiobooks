@@ -1,4 +1,4 @@
-name: AMP Review Bot
+name: Amp Review Bot
 
 on:
   pull_request:
@@ -74,7 +74,7 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR and provide feedback in the following EXACT format:"
+            echo "Please review this PR and provide feedback for inline comments in the following EXACT format:"
             echo ""
             echo "REQUIRED FORMAT:"
             echo "**Severity: [HIGH|MEDIUM|LOW]**"
@@ -82,16 +82,23 @@ jobs:
             echo "### Issues Found:"
             echo ""
             echo "1. **🔴 HIGH - [Issue Title]**"
-            echo "   - [Description of the issue]"
-            echo "   - [Additional context if needed]"
+            echo "   - FILE: path/to/file.js"
+            echo "   - LINE: 42"
+            echo "   - DESCRIPTION: [Detailed description of the issue]"
+            echo "   - SUGGESTION: [How to fix the issue]"
             echo ""
             echo "2. **🟡 MEDIUM - [Issue Title]**"
-            echo "   - [Description of the issue]"
+            echo "   - FILE: path/to/another/file.ts"
+            echo "   - LINE: 15"
+            echo "   - DESCRIPTION: [Detailed description of the issue]"
+            echo "   - SUGGESTION: [How to fix the issue]"
             echo ""
-            echo "3. **🟢 LOW - [Issue Title]**"
-            echo "   - [Description of the issue]"
-            echo ""
-            echo "IMPORTANT: Each issue MUST be numbered and start with priority emoji (🔴/🟡/🟢) and priority level (HIGH/MEDIUM/LOW)."
+            echo "CRITICAL REQUIREMENTS:"
+            echo "- Each issue MUST include FILE: and LINE: information"
+            echo "- FILE paths must match exactly as shown in the diff (e.g., 'client/src/components/App.vue')"
+            echo "- LINE numbers should reference the NEW file line numbers (+ lines in diff)"
+            echo "- If you cannot determine exact line, use the closest relevant line number"
+            echo "- Each issue must have 🔴 HIGH, 🟡 MEDIUM, or 🟢 LOW priority"
             echo ""
             echo "Please analyze the following diff for:"
             echo "- Missing or insufficient unit tests"
@@ -126,7 +133,7 @@ jobs:
             cp amp_full_output.txt amp_review.txt
           fi
 
-      - name: Create individual PR comments from review
+      - name: Create inline PR review comments
         if: steps.diff.outputs.DIFF_SIZE != '0'
         uses: actions/github-script@v7
         with:
@@ -142,245 +149,262 @@ jobs:
               reviewContent = 'Error generating review.';
             }
             
-            // Parse review content to extract individual issues with multiple fallback patterns
-            function parseReviewIssues(content) {
+            // Parse diff to understand file structure and line mappings
+            function parseDiffFiles(diffContent) {
+              const files = {};
+              const lines = diffContent.split('\n');
+              let currentFile = null;
+              let oldLineNum = 0;
+              let newLineNum = 0;
+              
+              for (const line of lines) {
+                // Match file headers: diff --git a/file b/file
+                const fileMatch = line.match(/^diff --git a\/(.+) b\/(.+)$/);
+                if (fileMatch) {
+                  currentFile = fileMatch[2]; // Use the 'b' version (new file)
+                  files[currentFile] = {
+                    lineMap: {}, // maps new line numbers to diff positions
+                    diffHunks: []
+                  };
+                  continue;
+                }
+                
+                // Match hunk headers: @@ -oldStart,oldCount +newStart,newCount @@
+                const hunkMatch = line.match(/^@@ -(\d+),?\d* \+(\d+),?\d* @@/);
+                if (hunkMatch && currentFile) {
+                  oldLineNum = parseInt(hunkMatch[1]);
+                  newLineNum = parseInt(hunkMatch[2]);
+                  continue;
+                }
+                
+                // Track line numbers for mapping
+                if (currentFile) {
+                  if (line.startsWith('+') && !line.startsWith('+++')) {
+                    // New line added
+                    files[currentFile].lineMap[newLineNum] = { type: 'added', line: newLineNum };
+                    newLineNum++;
+                  } else if (line.startsWith('-') && !line.startsWith('---')) {
+                    // Line removed
+                    oldLineNum++;
+                  } else if (line.startsWith(' ')) {
+                    // Context line (unchanged)
+                    files[currentFile].lineMap[newLineNum] = { type: 'context', line: newLineNum };
+                    oldLineNum++;
+                    newLineNum++;
+                  }
+                }
+              }
+              
+              return files;
+            }
+            
+            // Parse review content to extract individual issues with file/line info
+            function parseReviewIssuesWithLocation(content) {
               const issues = [];
               const lines = content.split('\n');
               let currentIssue = null;
               let severity = 'MEDIUM';
               
-              // Extract overall severity from the content (multiple patterns)
-              const severityPatterns = [
-                /\*\*Severity:\s*([\w-]+)\*\*/i,
-                /Severity:\s*\*\*([\w-]+)\*\*/i,
-                /\*\*Severity\*\*:\s*([\w-]+)/i
-              ];
-              
-              for (const pattern of severityPatterns) {
-                const match = content.match(pattern);
-                if (match) {
-                  severity = match[1].toUpperCase();
-                  break;
-                }
+              // Extract overall severity
+              const severityMatch = content.match(/\*\*Severity:\s*([\w-]+)\*\*/i);
+              if (severityMatch) {
+                severity = severityMatch[1].toUpperCase();
               }
               
-              console.log('Parsing content for issues... Overall severity: ' + severity);
-              
-              // Multiple patterns to match numbered issues
-              const issuePatterns = [
-                // Pattern 1: "1. **🔴 HIGH - Title**"
-                /^(\d+)\.\s+\*\*([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+?)\*\*\s*$/,
-                // Pattern 2: "1. **Title**"
-                /^(\d+)\.\s+\*\*(.+?)\*\*\s*$/,
-                // Pattern 3: "1. Title (no bold)"
-                /^(\d+)\.\s+([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+)$/,
-                // Pattern 4: Bullet points "- **Title**"
-                /^-\s+\*\*(.+?)\*\*\s*$/
-              ];
+              console.log('Parsing content for inline issues... Overall severity: ' + severity);
               
               for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                let matched = false;
                 
-                // Try each pattern
-                for (let patternIndex = 0; patternIndex < issuePatterns.length; patternIndex++) {
-                  const pattern = issuePatterns[patternIndex];
-                  const match = line.match(pattern);
-                  
-                  if (match) {
-                    // Finish previous issue
-                    if (currentIssue) {
-                      issues.push(currentIssue);
-                    }
-                    
-                    let issueNumber, emoji, priorityText, title;
-                    
-                    if (patternIndex === 0) {
-                      // Pattern 1: Full format with emoji and priority
-                      issueNumber = match[1];
-                      emoji = match[2] || '🟡';
-                      priorityText = match[3] || 'MEDIUM';
-                      title = match[4];
-                    } else if (patternIndex === 1) {
-                      // Pattern 2: Just number and title
-                      issueNumber = match[1];
-                      title = match[2];
-                      // Extract emoji and priority from title if present
-                      const titleMatch = title.match(/^([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+)$/);
-                      if (titleMatch) {
-                        emoji = titleMatch[1] || '🟡';
-                        priorityText = titleMatch[2] || 'MEDIUM';
-                        title = titleMatch[3];
-                      } else {
-                        emoji = '🟡';
-                        priorityText = 'MEDIUM';
-                      }
-                    } else if (patternIndex === 2) {
-                      // Pattern 3: Simple numbered list
-                      issueNumber = match[1];
-                      emoji = match[2] || '🟡';
-                      priorityText = match[3] || 'MEDIUM';
-                      title = match[4];
-                    } else {
-                      // Pattern 4: Bullet point
-                      issueNumber = (issues.length + 1).toString();
-                      title = match[1];
-                      emoji = '🟡';
-                      priorityText = 'MEDIUM';
-                    }
-                    
-                    // Determine priority display
-                    let priority;
-                    if (priorityText === 'HIGH' || emoji === '🔴') {
-                      priority = '🔴 HIGH';
-                    } else if (priorityText === 'LOW' || emoji === '🟢') {
-                      priority = '🟢 LOW';
-                    } else {
-                      priority = '🟡 MEDIUM';
-                    }
-                    
-                    currentIssue = {
-                      title: title.trim(),
-                      description: '',
-                      body: '',
-                      severity: severity,
-                      priority: priority,
-                      number: issueNumber
-                    };
-                    
-                    console.log('Found issue #' + issueNumber + ' (' + priority + '): ' + title.trim());
-                    matched = true;
-                    break;
+                // Match issue headers: "1. **🔴 HIGH - Title**"
+                const issueMatch = line.match(/^(\d+)\.\s+\*\*([🔴🟡🟢])?\s*(HIGH|MEDIUM|LOW)?\s*-?\s*(.+?)\*\*\s*$/);
+                if (issueMatch) {
+                  // Save previous issue
+                  if (currentIssue && currentIssue.file && currentIssue.line) {
+                    issues.push(currentIssue);
                   }
+                  
+                  const [, number, emoji, priorityText, title] = issueMatch;
+                  let priority = '🟡 MEDIUM';
+                  if (priorityText === 'HIGH' || emoji === '🔴') {
+                    priority = '🔴 HIGH';
+                  } else if (priorityText === 'LOW' || emoji === '🟢') {
+                    priority = '🟢 LOW';
+                  }
+                  
+                  currentIssue = {
+                    number: number,
+                    title: title.trim(),
+                    priority: priority,
+                    file: null,
+                    line: null,
+                    description: '',
+                    suggestion: '',
+                    body: ''
+                  };
+                  
+                  console.log('Found issue #' + number + ' (' + priority + '): ' + title.trim());
+                  continue;
                 }
                 
-                // If not an issue header, check if it's content for current issue
-                if (!matched && currentIssue) {
-                  if (line.startsWith('- ')) {
-                    // This is a description line
-                    if (!currentIssue.description) {
-                      currentIssue.description = line.substring(2).trim();
-                    } else {
-                      currentIssue.body += line + '\n';
-                    }
-                  } else if (line.length > 0 && !line.startsWith('#') && !line.startsWith('**') && !line.startsWith('```') && !line.startsWith('---')) {
-                    // Add additional context to current issue
+                // Parse issue details
+                if (currentIssue) {
+                  const fileMatch = line.match(/^-\s*FILE:\s*(.+)$/i);
+                  const lineMatch = line.match(/^-\s*LINE:\s*(\d+)$/i);
+                  const descMatch = line.match(/^-\s*DESCRIPTION:\s*(.+)$/i);
+                  const suggMatch = line.match(/^-\s*SUGGESTION:\s*(.+)$/i);
+                  
+                  if (fileMatch) {
+                    currentIssue.file = fileMatch[1].trim();
+                  } else if (lineMatch) {
+                    currentIssue.line = parseInt(lineMatch[1]);
+                  } else if (descMatch) {
+                    currentIssue.description = descMatch[1].trim();
+                  } else if (suggMatch) {
+                    currentIssue.suggestion = suggMatch[1].trim();
+                  } else if (line.startsWith('- ') && !fileMatch && !lineMatch && !descMatch && !suggMatch) {
                     currentIssue.body += line + '\n';
                   }
                 }
               }
               
-              if (currentIssue) {
+              // Add final issue
+              if (currentIssue && currentIssue.file && currentIssue.line) {
                 issues.push(currentIssue);
               }
               
-              console.log('Parsed ' + issues.length + ' issues total');
-              
-              // If no issues found, try to create at least one from the content
-              if (issues.length === 0) {
-                console.log('No structured issues found, creating generic issue from content');
-                const fallbackIssue = {
-                  title: 'Code Review Feedback',
-                  description: 'Please review the detailed feedback below',
-                  body: content.substring(0, 500) + (content.length > 500 ? '...' : ''),
-                  severity: severity,
-                  priority: '🟡 MEDIUM',
-                  number: '1'
-                };
-                issues.push(fallbackIssue);
-              }
-              
-              return issues;
+              console.log('Parsed ' + issues.length + ' issues with file/line info');
+              return issues.filter(issue => issue.file && issue.line);
             }
             
-            const issues = parseReviewIssues(reviewContent);
+            const diffContent = fs.readFileSync('pr_diff.txt', 'utf8');
+            const diffFiles = parseDiffFiles(diffContent);
+            const issues = parseReviewIssuesWithLocation(reviewContent);
             
-            // First, remove existing bot comments to avoid clutter
+            // Clean up existing review comments
             try {
-              const { data: existingComments } = await github.rest.issues.listComments({
+              const { data: existingReviews } = await github.rest.pulls.listReviews({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
+                pull_number: context.issue.number,
               });
               
-              const botComments = existingComments.filter(comment => 
-                comment.body.includes('🤖 **Code Review Issue**') || 
-                comment.body.includes('🤖 AMP Code Review Summary')
-              );
-              
-              for (const comment of botComments) {
-                await github.rest.issues.deleteComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: comment.id
-                });
-                console.log('Deleted existing bot comment #' + comment.id);
+              for (const review of existingReviews) {
+                if (review.body && review.body.includes('🤖 AMP Code Review')) {
+                  try {
+                    await github.rest.pulls.dismissReview({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: context.issue.number,
+                      review_id: review.id,
+                      message: 'Dismissed by updated review'
+                    });
+                    console.log('Dismissed existing review #' + review.id);
+                  } catch (dismissError) {
+                    console.log('Could not dismiss review #' + review.id + ':', dismissError.message);
+                  }
+                }
               }
             } catch (error) {
-              console.log('Note: Could not clean up existing comments:', error.message);
+              console.log('Note: Could not clean up existing reviews:', error.message);
             }
             
-            const createdComments = [];
+            // Create review comments
+            const reviewComments = [];
+            const createdIssues = [];
             
-            // Create individual PR comments for each parsed issue
-            for (let i = 0; i < issues.length; i++) {
-              const issue = issues[i];
+            for (const issue of issues) {
+              // Verify the file exists in the diff
+              if (!diffFiles[issue.file]) {
+                console.log('Skipping issue for file not in diff: ' + issue.file);
+                continue;
+              }
+              
+              const commentBody = '**' + issue.priority + ' - ' + issue.title + '**\n\n' +
+                issue.description + '\n\n' +
+                (issue.suggestion ? '**Suggestion:** ' + issue.suggestion + '\n\n' : '') +
+                '---\n*🤖 Generated by AMP Code Review Bot*';
+              
+              reviewComments.push({
+                path: issue.file,
+                line: issue.line,
+                body: commentBody
+              });
+              
+              createdIssues.push({
+                title: issue.title,
+                priority: issue.priority,
+                file: issue.file,
+                line: issue.line
+              });
+              
+              console.log('Prepared inline comment for ' + issue.file + ':' + issue.line);
+            }
+            
+            // Create the review with inline comments
+            if (reviewComments.length > 0) {
               try {
-                const commentBody = '## 🤖 **Code Review Issue #' + (i + 1) + '**\n\n' +
-                  '### ' + issue.priority + ' - ' + issue.title + '\n\n' +
-                  issue.description + '\n\n' +
-                  (issue.body ? '**Additional Details:**\n' + issue.body + '\n' : '') +
-                  '---\n*Generated by AMP Code Review Bot for PR #' + context.issue.number + '*';
-                
-                const { data: createdComment } = await github.rest.issues.createComment({
+                const reviewBody = '## 🤖 AMP Code Review\n\n' +
+                  'Found **' + reviewComments.length + '** issues that need attention. See inline comments for details.\n\n' +
+                  '**Issues Summary:**\n' +
+                  createdIssues.map((issue, index) => 
+                    (index + 1) + '. ' + issue.priority + ' - ' + issue.title + ' (' + issue.file + ':' + issue.line + ')'
+                  ).join('\n') + '\n\n' +
+                  '**Next Steps:**\n' +
+                  '- Address each issue marked in the code\n' +
+                  '- Resolve conversations when issues are fixed\n' +
+                  '- Re-request review when all issues are addressed\n\n' +
+                  '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
+
+                const { data: review } = await github.rest.pulls.createReview({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: commentBody
+                  pull_number: context.issue.number,
+                  body: reviewBody,
+                  event: 'REQUEST_CHANGES',
+                  comments: reviewComments
                 });
                 
-                createdComments.push({
-                  id: createdComment.id,
-                  title: issue.title,
-                  priority: issue.priority
-                });
-                
-                console.log('Created comment for: ' + issue.title);
+                console.log('Created PR review with ' + reviewComments.length + ' inline comments');
               } catch (error) {
-                console.error('Error creating comment for ' + issue.title + ':', error);
+                console.error('Error creating PR review:', error);
+                
+                // Fallback: create individual review comments
+                console.log('Attempting to create individual review comments as fallback...');
+                for (const comment of reviewComments) {
+                  try {
+                    await github.rest.pulls.createReviewComment({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: context.issue.number,
+                      body: comment.body,
+                      path: comment.path,
+                      line: comment.line,
+                      side: 'RIGHT'
+                    });
+                    console.log('Created individual comment for ' + comment.path + ':' + comment.line);
+                  } catch (commentError) {
+                    console.error('Error creating individual comment:', commentError);
+                  }
+                }
               }
-            }
-            
-            // Create summary comment on PR
-            let summaryBody = '## 🤖 AMP Code Review Summary\n\n';
-            
-            if (createdComments.length > 0) {
-              summaryBody += 'Found **' + createdComments.length + '** issues that need attention. See individual comments above for details.\n\n';
-              
-              summaryBody += '**Issues Summary:**\n';
-              createdComments.forEach((comment, index) => {
-                summaryBody += (index + 1) + '. ' + comment.priority + ' - ' + comment.title + '\n';
-              });
-              
-              summaryBody += '\n**Next Steps:**\n';
-              summaryBody += '- Address each issue listed in the comments above\n';
-              summaryBody += '- Reply to individual comments when issues are resolved\n';
-              summaryBody += '- Re-request review when all issues are addressed\n\n';
             } else {
-              summaryBody += 'No specific issues found to comment on. ✅\n\n';
-              summaryBody += '**Full Review:**\n\n```\n' + reviewContent + '\n```';
-            }
-            
-            summaryBody += '\n---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
-            
-            try {
-              const { data: summaryComment } = await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: summaryBody
-              });
-              console.log('Created summary comment');
-            } catch (error) {
-              console.error('Error posting summary comment:', error);
+              // No inline comments, create a general review
+              const reviewBody = '## 🤖 AMP Code Review\n\n' +
+                'No specific inline issues found. ✅\n\n' +
+                '**Full Review:**\n```\n' + reviewContent + '\n```\n\n' +
+                '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
+
+              try {
+                await github.rest.pulls.createReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  body: reviewBody,
+                  event: 'COMMENT'
+                });
+                console.log('Created general review comment');
+              } catch (error) {
+                console.error('Error creating general review:', error);
+              }
             }
