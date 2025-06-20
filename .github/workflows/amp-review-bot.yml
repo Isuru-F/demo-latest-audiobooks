@@ -1,4 +1,4 @@
-name: AMP Review Bot
+name: Amp Review Bot
 
 on:
   pull_request:
@@ -74,9 +74,7 @@ jobs:
         run: |
           # Create prompt file with diff
           {
-            echo "Please review this PR, look at the diff and suggest improvements, please also include the severity of your review. If you have a reccomended prompt to fix these issues please also include it in your comment. Check to see if there are enough unit tests for any new features that have been added. "
-            echo ""
-            echo "DIFF:"
+            echo "Please review this PR, look at the diff and suggest improvements, please also include the severity of your review. If you have a reccomended prompt to fix these issues please also include it in your comment. Check to see if there are enough unit tests for any new features that have been added. "          
             cat pr_diff.txt
           } > amp_input.txt
           
@@ -100,7 +98,7 @@ jobs:
             }
             
             // Use string concatenation instead of template literals to avoid YAML issues
-            const commentBody = '## AMP Code Review\n\n' + reviewContent;
+            const commentBody = '## Amp Code Review\n\n' + reviewContent;
             
             try {
               // Find existing comment to update
@@ -111,7 +109,7 @@ jobs:
               });
               
               const botComment = comments.find(comment => 
-                comment.body.includes('## AMP Code Review')
+                comment.body.includes('## Amp Code Review')
               );
               
               if (botComment) {
