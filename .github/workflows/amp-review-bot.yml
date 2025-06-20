@@ -78,8 +78,8 @@ jobs:
             cat pr_diff.txt
           } > amp_input.txt
           
-          # Run AMP with the combined input - removing the unsupported --stdin flag
-          cat amp_input.txt | amp --no-color --interactive --no-notifications > amp_review.txt
+          # Run AMP with the combined input
+          cat amp_input.txt | amp --no-color --no-notifications > amp_review.txt
 
       - name: Post review comment
         if: steps.diff.outputs.DIFF_SIZE != '0'
