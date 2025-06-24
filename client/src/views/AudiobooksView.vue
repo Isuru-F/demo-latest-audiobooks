@@ -1,18 +1,40 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
+import type { Audiobook } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
+// Multi-cast toggle with localStorage persistence
+const multiCastOnly = ref(localStorage.getItem('multiCastOnly') === 'true');
+
+// Watch for changes and persist to localStorage
+watch(multiCastOnly, (newValue) => {
+  localStorage.setItem('multiCastOnly', newValue.toString());
+});
+
+// Helper function to check if audiobook has multiple narrators
+const isMultiCast = (audiobook: Audiobook): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
+
 const filteredAudiobooks = computed(() => {
+  let audiobooks = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter first
+  if (multiCastOnly.value) {
+    audiobooks = audiobooks.filter(isMultiCast);
+  }
+  
+  // Apply text search filter
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return audiobooks;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return audiobooks.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -55,6 +77,17 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+          <div class="toggle-container">
+            <label class="toggle-label">
+              <input 
+                type="checkbox" 
+                v-model="multiCastOnly" 
+                class="toggle-checkbox"
+              />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -67,7 +100,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -144,12 +179,14 @@ onMounted(() => {
 }
 
 .search-container {
-  position: relative;
-  width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .search-input {
-  width: 100%;
+  width: 300px;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -166,6 +203,61 @@ onMounted(() => {
   background: #ffffff;
 }
 
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2a2d3e;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: #cbd5e1;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-checkbox:checked + .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+.toggle-text {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .audiobook-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -176,6 +268,22 @@ onMounted(() => {
 @media (min-width: 1200px) {
   .audiobook-grid {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .audiobooks-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-container {
+    justify-content: center;
+  }
+  
+  .search-input {
+    width: 100%;
+    max-width: 300px;
   }
 }
 
