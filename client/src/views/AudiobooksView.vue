@@ -6,35 +6,57 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
+// Multi-cast toggle with localStorage persistence
+const multiCastOnly = ref(localStorage.getItem('multiCastOnly') === 'true' || false);
+
+// Helper function to determine if audiobook has multiple narrators
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
+
+// Watch for toggle changes and persist to localStorage
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+  localStorage.setItem('multiCastOnly', multiCastOnly.value.toString());
+};
+
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let filtered = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter first
+  if (multiCastOnly.value) {
+    filtered = filtered.filter(isMultiCast);
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  // Apply search filter if there's a query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = filtered.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
-    
-    return authorMatch || narratorMatch;
-  });
+  }
+  
+  return filtered;
 });
 
 onMounted(() => {
@@ -48,13 +70,27 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="toggle-container">
+            <label class="toggle-switch" :class="{ active: multiCastOnly }">
+              <input 
+                type="checkbox" 
+                :checked="multiCastOnly" 
+                @change="toggleMultiCast"
+                class="toggle-input"
+              />
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -67,7 +103,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -143,6 +181,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +209,78 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 25px;
+  background: #f0f2fa;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.toggle-switch.active {
+  background: linear-gradient(90deg, rgba(233, 66, 255, 0.1), rgba(138, 66, 255, 0.1));
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+}
+
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #ccc;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2a2d3e;
+  white-space: nowrap;
+}
+
+.toggle-switch.active .toggle-label {
+  color: #8a42ff;
+  font-weight: 600;
 }
 
 .audiobook-grid {
