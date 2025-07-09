@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import type { Ref } from 'vue';
 import api from '@/services/api';
 import type { Album, Audiobook, GenresResponse, NewReleasesResponse, AudiobooksResponse } from '@/types/spotify';
+import { hardcodedAudiobooksResponse } from '@/data/hardcodedAudiobooks';
 
 export const useSpotifyStore = defineStore('spotify', () => {
   const newReleases: Ref<Album[]> = ref([]);
@@ -45,8 +46,8 @@ export const useSpotifyStore = defineStore('spotify', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await api.getAudiobooks(limit, offset, market);
-      const data = response.data as AudiobooksResponse;
+      // Use hardcoded data for demo purposes
+      const data = hardcodedAudiobooksResponse as AudiobooksResponse;
       audiobooks.value = data.audiobooks.items;
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch audiobooks';
