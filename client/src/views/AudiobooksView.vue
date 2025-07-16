@@ -1,63 +1,83 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useSpotifyStore } from '@/stores/spotify';
-import AudiobookCard from '@/components/AudiobookCard.vue';
+import { onMounted, ref, computed } from 'vue'
+import { useSpotifyStore } from '@/stores/spotify'
+import AudiobookCard from '@/components/AudiobookCard.vue'
+import type { Audiobook } from '@/types/spotify'
 
-const spotifyStore = useSpotifyStore();
-const searchQuery = ref('');
+const spotifyStore = useSpotifyStore()
+const searchQuery = ref('')
+const multiCastOnly = ref(false)
+
+// Helper function to check if audiobook has multiple narrators
+const isMultiCastAudiobook = (audiobook: Audiobook): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1
+}
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let filtered = spotifyStore.audiobooks
+
+  // Apply multi-cast filter first
+  if (multiCastOnly.value) {
+    filtered = filtered.filter(isMultiCastAudiobook)
   }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+
+  // Apply search filter
+  if (!searchQuery.value.trim()) {
+    return filtered
+  }
+
+  const query = searchQuery.value.toLowerCase().trim()
+  return filtered.filter((audiobook) => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
+      return true
     }
-    
+
     // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
+    const authorMatch = audiobook.authors.some((author) =>
+      author.name.toLowerCase().includes(query),
+    )
+
     // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
+    const narratorMatch = audiobook.narrators?.some((narrator) => {
       if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
+        return narrator.toLowerCase().includes(query)
       } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        return narrator.name ? narrator.name.toLowerCase().includes(query) : false
       }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+      return false
+    })
+
+    return authorMatch || narratorMatch
+  })
+})
 
 onMounted(() => {
-  spotifyStore.fetchAudiobooks();
-});
+  spotifyStore.fetchAudiobooks()
+})
 </script>
 
 <template>
   <main>
-
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
         <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Search titles, authors or narrators..."
             class="search-input"
           />
+          <div class="multi-cast-toggle">
+            <label class="toggle-label">
+              <input type="checkbox" v-model="multiCastOnly" class="toggle-checkbox" />
+              <span class="toggle-text">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
-      
+
       <div v-if="spotifyStore.isLoading" class="loading">
         <div class="spinner"></div>
         <p>Loading audiobooks...</p>
@@ -67,12 +87,14 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          No audiobooks match your search.
+        </p>
         <div v-else class="audiobook-grid">
-          <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
-            :key="audiobook.id" 
-            :audiobook="audiobook" 
+          <AudiobookCard
+            v-for="audiobook in filteredAudiobooks"
+            :key="audiobook.id"
+            :audiobook="audiobook"
           />
         </div>
       </div>
@@ -146,6 +168,9 @@ onMounted(() => {
 .search-container {
   position: relative;
   width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .search-input {
@@ -164,6 +189,63 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2a2d3e;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e0e0e0;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.toggle-checkbox:hover {
+  border-color: #8a42ff;
+}
+
+.toggle-checkbox:checked {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  border-color: #8a42ff;
+}
+
+.toggle-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.toggle-text {
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.toggle-checkbox:checked + .toggle-text {
+  color: #8a42ff;
 }
 
 .audiobook-grid {
@@ -186,7 +268,8 @@ onMounted(() => {
   font-size: 18px;
 }
 
-.loading, .error {
+.loading,
+.error {
   text-align: center;
   padding: 40px 0;
 }
@@ -202,8 +285,12 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error p {
