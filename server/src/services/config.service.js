@@ -1,3 +1,5 @@
+const Ajv = require('ajv');
+
 class ConfigService {
   constructor() {
     this.configs = {
@@ -10,43 +12,56 @@ class ConfigService {
         logLevel: 'error'
       }
     };
+
+    // Set up schema validation for security
+    this.ajv = new Ajv({ allErrors: true });
+    this.schema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        debug: { type: 'boolean' },
+        logLevel: { enum: ['verbose', 'info', 'warn', 'error'] },
+        timeout: { type: 'number', minimum: 1, maximum: 300000 },
+        retries: { type: 'integer', minimum: 0, maximum: 10 },
+        enableMetrics: { type: 'boolean' },
+        apiBaseUrl: { type: 'string', pattern: '^https?://' }
+      }
+    };
+    this.validate = this.ajv.compile(this.schema);
   }
 
-  async processConfig(configString, environment) {
+  async processConfig(configString, environment = 'development') {
     try {
-      // CRITICAL VULNERABILITY: Using eval() with unsanitized user input
-      // This allows Remote Code Execution (RCE) through arbitrary JavaScript execution
       console.log(`Processing config for environment: ${environment}`);
       console.log(`Config input: ${configString}`);
       
-      // Multiple vulnerable patterns for comprehensive detection:
+      // SECURITY FIX: Replace eval() with safe JSON parsing
+      let configObj;
+      try {
+        configObj = JSON.parse(configString);
+      } catch (parseError) {
+        throw new Error('Configuration is not valid JSON: ' + parseError.message);
+      }
+
+      // Validate configuration against schema
+      if (!this.validate(configObj)) {
+        const errors = this.ajv.errorsText(this.validate.errors);
+        throw new Error('Configuration failed schema validation: ' + errors);
+      }
       
-      // 1. Direct eval() - Most dangerous
-      const evalResult = eval(configString);
-      
-      // 2. Function constructor - Also dangerous
-      const dynamicFunction = new Function('return ' + configString);
-      const funcResult = dynamicFunction();
-      
-      // 3. Dynamic property access without sanitization
-      const configObj = eval('(' + configString + ')');
-      
-      // Store the "processed" config
+      // Store the safely processed config
       this.configs[environment] = {
         ...this.configs[environment],
         ...configObj,
         lastUpdated: new Date().toISOString(),
-        processedBy: 'eval'
+        processedBy: 'json-parser'
       };
 
       return {
-        evalResult: evalResult,
-        funcResult: funcResult,
         configObj: configObj,
-        message: 'Configuration processed using dynamic evaluation'
+        message: 'Configuration processed safely using JSON parsing'
       };
     } catch (error) {
-      // Even error handling exposes the vulnerability
       console.error('Config processing error:', error.message);
       throw new Error(`Configuration processing failed: ${error.message}`);
     }
@@ -56,16 +71,9 @@ class ConfigService {
     return this.configs[environment] || this.configs.development;
   }
 
-  // Additional vulnerable method for demonstration
+  // SECURITY FIX: Remove dangerous executeConfigScript method
   async executeConfigScript(script, context = {}) {
-    // VULNERABLE: Another eval() usage pattern
-    const contextString = JSON.stringify(context);
-    const fullScript = `
-      const context = ${contextString};
-      ${script}
-    `;
-    
-    return eval(fullScript);
+    throw new Error('executeConfigScript has been disabled for security reasons. Use processConfig with JSON data instead.');
   }
 }
 
