@@ -1,7 +1,8 @@
+const escape = require('escape-html');
+
 /**
- * VULNERABLE CONTROLLER - FOR DEMO PURPOSES ONLY
- * This controller contains an intentional XSS vulnerability
- * It directly outputs user input without sanitization
+ * SECURE CONTROLLER - Fixed XSS vulnerability
+ * This controller now properly sanitizes user input before rendering HTML
  */
 class UsersController {
     async updateProfile(req, res, next) {
@@ -12,8 +13,24 @@ class UsersController {
                 return res.status(400).json({ error: 'Name, bio, and email are required' });
             }
 
-            // VULNERABILITY: Direct HTML output without sanitization
-            // This allows malicious scripts to be executed in the browser
+            // Input validation - prevent excessively long inputs
+            if (name.length > 200) {
+                return res.status(400).json({ error: 'Name must be 200 characters or less' });
+            }
+            if (bio.length > 1000) {
+                return res.status(400).json({ error: 'Bio must be 1000 characters or less' });
+            }
+            if (email.length > 254) { // RFC 5321 email length limit
+                return res.status(400).json({ error: 'Email must be 254 characters or less' });
+            }
+
+            // Email validation using basic regex
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: 'Please provide a valid email address' });
+            }
+
+            // SECURITY FIX: HTML escape all user inputs to prevent XSS
             const profileHtml = `
                 <html>
                     <head>
@@ -27,11 +44,11 @@ class UsersController {
                     <body>
                         <div class="profile">
                             <h2>User Profile Updated</h2>
-                            <p><strong>Name:</strong> ${name}</p>
-                            <p><strong>Email:</strong> ${email}</p>
+                            <p><strong>Name:</strong> ${escape(name)}</p>
+                            <p><strong>Email:</strong> ${escape(email)}</p>
                             <div class="bio">
                                 <strong>Bio:</strong><br>
-                                ${bio}
+                                ${escape(bio)}
                             </div>
                             <p><em>Profile saved successfully at ${new Date().toISOString()}</em></p>
                         </div>
@@ -39,8 +56,12 @@ class UsersController {
                 </html>
             `;
 
-            // CRITICAL VULNERABILITY: Using res.send() with unsanitized user input
-            // Any JavaScript in the 'bio' field will be executed
+            // Security headers to provide defense-in-depth
+            res.setHeader('Content-Security-Policy', "default-src 'self'");
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader('X-Frame-Options', 'DENY');
+            res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+            
             res.send(profileHtml);
 
         } catch (error) {
