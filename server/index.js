@@ -5,6 +5,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security: Disable X-Powered-By header to prevent information disclosure
+app.disable('x-powered-by');
+
 // Middleware
 app.use(cors());
 app.use(express.json());
