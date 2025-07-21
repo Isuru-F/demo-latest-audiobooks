@@ -1,8 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 require('dotenv').config();
 
 const app = express();
+
+// Security middleware - removes X-Powered-By header and adds security headers
+app.use(helmet());
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
