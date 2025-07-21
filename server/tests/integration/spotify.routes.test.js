@@ -59,7 +59,7 @@ describe('Spotify API Routes', () => {
       const mockGenres = {
         genres: ['rock', 'pop', 'hip-hop']
       };
-      spotifyService.getAvailableGenres.mockResolvedValue(mockGenres);
+      spotifyService.getGenres.mockResolvedValue(mockGenres);
 
       const response = await request(app)
         .get('/api/spotify/genres')
@@ -67,12 +67,12 @@ describe('Spotify API Routes', () => {
         .expect(200);
 
       expect(response.body).toEqual(mockGenres);
-      expect(spotifyService.getAvailableGenres).toHaveBeenCalled();
+      expect(spotifyService.getGenres).toHaveBeenCalled();
     });
 
     it('should handle errors from the service', async () => {
       // Mock a service error
-      spotifyService.getAvailableGenres.mockRejectedValue(new Error('API Error'));
+      spotifyService.getGenres.mockRejectedValue(new Error('API Error'));
 
       await request(app)
         .get('/api/spotify/genres')

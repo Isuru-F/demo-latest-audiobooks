@@ -6,17 +6,21 @@ jest.mock('axios');
 describe('SpotifyService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock token response
-    axios.mockResolvedValueOnce({
-      data: {
-        access_token: 'mock-token',
-        expires_in: 3600
-      }
-    });
+    // Reset the service instance state
+    spotifyService.authToken = null;
+    spotifyService.tokenExpiration = null;
   });
 
   describe('getAudiobooks', () => {
     it('should fetch audiobooks successfully', async () => {
+      // Mock token response
+      axios.mockResolvedValueOnce({
+        data: {
+          access_token: 'mock-token',
+          expires_in: 3600
+        }
+      });
+
       // Mock audiobooks response
       const mockAudiobooksData = {
         audiobooks: {
@@ -53,14 +57,18 @@ describe('SpotifyService', () => {
     });
 
     it('should throw an error when API call fails', async () => {
-      // Replace axios mock to make the token request succeed but the audiobooks call fail
-      axios.mockReset();
+      // Clear existing mocks and set up new ones
+      jest.clearAllMocks();
+      
+      // Mock successful token request
       axios.mockResolvedValueOnce({
         data: {
           access_token: 'mock-token',
           expires_in: 3600
         }
       });
+      
+      // Mock failed audiobooks request
       axios.mockRejectedValueOnce(new Error('API error'));
 
       await expect(spotifyService.getAudiobooks()).rejects.toThrow('Failed to fetch audiobooks from Spotify');

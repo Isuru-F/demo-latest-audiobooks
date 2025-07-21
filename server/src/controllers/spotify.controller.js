@@ -4,7 +4,7 @@ class SpotifyController {
   async getNewReleases(req, res, next) {
     try {
       const { limit = 20, offset = 0, country = 'US' } = req.query;
-      const data = await spotifyService.getNewReleases(limit, offset, country);
+      const data = await spotifyService.getNewReleases(parseInt(limit), parseInt(offset), country);
       res.json(data);
     } catch (error) {
       next(error);
