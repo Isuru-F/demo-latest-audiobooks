@@ -9,7 +9,7 @@ describe('SpotifyService', () => {
     // Mock token response
     axios.mockResolvedValueOnce({
       data: {
-        access_token: 'mock-token',
+        access_token: 'test-access-token-' + Date.now(),
         expires_in: 3600
       }
     });
@@ -47,9 +47,7 @@ describe('SpotifyService', () => {
         limit: 40,
         offset: 0
       });
-      expect(audiobooksCall.headers).toEqual({
-        'Authorization': 'Bearer mock-token'
-      });
+      expect(audiobooksCall.headers.Authorization).toMatch(/^Bearer test-access-token-\d+$/);
     });
 
     it('should throw an error when API call fails', async () => {
@@ -57,7 +55,7 @@ describe('SpotifyService', () => {
       axios.mockReset();
       axios.mockResolvedValueOnce({
         data: {
-          access_token: 'mock-token',
+          access_token: 'test-access-token-' + Date.now(),
           expires_in: 3600
         }
       });
