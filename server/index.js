@@ -1,11 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 require('dotenv').config();
 
 const app = express();
+app.disable('x-powered-by'); // Extra safety net - helmet also does this
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Security middleware
+app.use(helmet()); // Comprehensive security headers including X-Powered-By removal
 app.use(cors());
 app.use(express.json());
 
