@@ -1,8 +1,9 @@
 /**
- * VULNERABLE CONTROLLER - FOR DEMO PURPOSES ONLY
- * This controller contains an intentional XSS vulnerability
- * It directly outputs user input without sanitization
+ * SECURE CONTROLLER - XSS vulnerability has been fixed
+ * User input is now properly escaped before rendering in HTML
  */
+const escapeHtml = require('lodash.escape');
+
 class UsersController {
     async updateProfile(req, res, next) {
         try {
@@ -12,8 +13,7 @@ class UsersController {
                 return res.status(400).json({ error: 'Name, bio, and email are required' });
             }
 
-            // VULNERABILITY: Direct HTML output without sanitization
-            // This allows malicious scripts to be executed in the browser
+            // SECURITY FIX: Escape all user input to prevent XSS attacks
             const profileHtml = `
                 <html>
                     <head>
@@ -27,11 +27,11 @@ class UsersController {
                     <body>
                         <div class="profile">
                             <h2>User Profile Updated</h2>
-                            <p><strong>Name:</strong> ${name}</p>
-                            <p><strong>Email:</strong> ${email}</p>
+                            <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+                            <p><strong>Email:</strong> ${escapeHtml(email)}</p>
                             <div class="bio">
                                 <strong>Bio:</strong><br>
-                                ${bio}
+                                ${escapeHtml(bio)}
                             </div>
                             <p><em>Profile saved successfully at ${new Date().toISOString()}</em></p>
                         </div>
@@ -39,9 +39,10 @@ class UsersController {
                 </html>
             `;
 
-            // CRITICAL VULNERABILITY: Using res.send() with unsanitized user input
-            // Any JavaScript in the 'bio' field will be executed
-            res.send(profileHtml);
+            // SECURITY FIX: Add CSP header and send escaped HTML
+            res
+                .set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self';")
+                .send(profileHtml);
 
         } catch (error) {
             console.error('Error updating profile:', error);
