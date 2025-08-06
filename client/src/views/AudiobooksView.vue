@@ -5,14 +5,31 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
+
+// Option 2: Separate Multi-Cast Filter Function
+const isMultiCastAudiobook = (audiobook: any): boolean => {
+  if (!audiobook.narrators || !Array.isArray(audiobook.narrators)) {
+    return false;
+  }
+  return audiobook.narrators.length > 1;
+};
 
 const filteredAudiobooks = computed(() => {
+  let audiobooks = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter first
+  if (multiCastOnly.value) {
+    audiobooks = audiobooks.filter(isMultiCastAudiobook);
+  }
+  
+  // Apply search filter
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return audiobooks;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return audiobooks.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -55,6 +72,17 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+          <div class="toggle-container">
+            <label class="toggle-label">
+              <input 
+                type="checkbox" 
+                v-model="multiCastOnly" 
+                class="toggle-checkbox"
+              />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -67,7 +95,11 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly && !searchQuery.trim() ? 'No multi-cast audiobooks found.' : 
+             multiCastOnly && searchQuery.trim() ? 'No multi-cast audiobooks match your search.' : 
+             'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -144,12 +176,14 @@ onMounted(() => {
 }
 
 .search-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
   position: relative;
-  width: 300px;
 }
 
 .search-input {
-  width: 100%;
+  width: 300px;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -164,6 +198,60 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 50px;
+  height: 24px;
+  background: #e0e0e0;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-checkbox:checked + .toggle-slider::before {
+  transform: translateX(26px);
+}
+
+.toggle-text {
+  font-size: 14px;
+  color: #2a2d3e;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .audiobook-grid {
