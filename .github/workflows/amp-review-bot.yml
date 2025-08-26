@@ -67,32 +67,22 @@ jobs:
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          # Build the prompt requesting strict JSON only
+          # Build the prompt requesting strict JSON only, wrapped with sentinels
           cat > amp_input.txt << 'EOF'
-          You are a senior reviewer. Analyze the provided unified git diff and produce ONLY JSON with this exact schema (no markdown, no prose, no code fences):
-          {
-            "tool": "amp",
-            "version": "0.1",
-            "summary": "<optional high-level summary>",
-            "issues": [
-              {
-                "id": 1,
-                "severity": "HIGH|MEDIUM|LOW",
-                "title": "<concise title>",
-                "file": "<path/to/file from repo root matching the 'b/' path in the diff>",
-                "line": <new file line number>,
-                "description": "<what is wrong and why>",
-                "suggestion": "<how to fix>"
-              }
-            ]
-          }
+          You are a senior reviewer. Analyze the provided unified git diff.
 
-          Rules:
+          Output ONLY valid JSON, no markdown, no prose, no code fences.
+          Wrap the JSON between the two lines below exactly:
+          BEGIN_AMP_JSON
+          {"tool":"amp","version":"0.1","summary":"<optional>","issues":[{"id":1,"severity":"HIGH|MEDIUM|LOW","title":"<title>","file":"<b/path/from/diff>","line":123,"description":"<why>","suggestion":"<fix>"}]}
+          END_AMP_JSON
+
+          Requirements:
           - Use the NEW file path as shown after "b/" in the diff header (e.g., client/src/App.vue)
           - Use NEW file line numbers (the + side). If exact line is unclear, choose the nearest changed line
-          - If there are no issues, return {"tool":"amp","version":"0.1","issues":[]}
+          - If there are no issues, output BEGIN_AMP_JSON then {"tool":"amp","version":"0.1","issues":[]} then END_AMP_JSON
           - Consider: missing/weak tests, security, performance, code quality, architecture, best practices
-          - Output MUST be valid JSON. Do not include anything else.
+          - Output MUST be valid JSON. Do not include anything else outside the sentinels.
 
           DIFF:
           EOF
@@ -100,14 +90,36 @@ jobs:
           cat pr_diff.txt >> amp_input.txt
 
           # Execute Amp in one-shot mode and capture output
-          cat amp_input.txt | amp -x > amp_output.txt
+          cat amp_input.txt | amp -x > amp_output.txt || true
 
-          # Try to validate/normalize to strict JSON
-          if jq -e . amp_output.txt > /dev/null 2>&1; then
-            cp amp_output.txt amp_review.json
+          # Extract JSON between sentinels if present
+          if grep -q "BEGIN_AMP_JSON" amp_output.txt && grep -q "END_AMP_JSON" amp_output.txt; then
+            sed -n '/BEGIN_AMP_JSON/,/END_AMP_JSON/p' amp_output.txt | sed '1d;$d' > amp_candidate.json
           else
-            echo "{}" > amp_review.json
-            echo "Amp output was not valid JSON. Stored raw output for debugging." >> $GITHUB_STEP_SUMMARY
+            # Fallback: try to extract the first balanced JSON object
+            node -e '
+              const fs=require("fs");
+              const s=fs.readFileSync("amp_output.txt","utf8");
+              function extract(){
+                for (let start=s.indexOf("{"); start!==-1; start=s.indexOf("{", start+1)){
+                  let depth=0; for (let i=start;i<s.length;i++){ const ch=s[i]; if(ch==="{") depth++; else if(ch==='}') { depth--; if(depth===0){ const cand=s.slice(start,i+1); try{ JSON.parse(cand); process.stdout.write(cand); return; }catch(e){} } } }
+                }
+              }
+              extract();
+            ' > amp_candidate.json || true
+          fi
+
+          # Validate candidate JSON and write amp_review.json
+          if [ -s amp_candidate.json ] && jq -e . amp_candidate.json >/dev/null 2>&1; then
+            cp amp_candidate.json amp_review.json
+          else
+            echo '{}' > amp_review.json
+            echo 'Amp output did not include parseable JSON. See raw output below.' >> $GITHUB_STEP_SUMMARY
+            echo '' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -c 4000 amp_output.txt >> $GITHUB_STEP_SUMMARY || true
+            echo '' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Create inline PR review comments
@@ -217,7 +229,7 @@ jobs:
 
             const ampJson = safeReadJson('amp_review.json');
             if (!ampJson || !ampJson.issues || !Array.isArray(ampJson.issues)) {
-              const body = '##  Amp Code Review\n\n' +
+              const body = '## 🤖 AMP Code Review\n\n' +
                 'Could not parse structured review from Amp. Showing raw output if available.\n\n' +
                 '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
               await github.rest.pulls.createReview({
@@ -246,7 +258,7 @@ jobs:
                 pull_number: context.issue.number,
               });
               for (const review of existingReviews) {
-                if (review.body && review.body.includes('Amp Code Review')) {
+                if (review.body && review.body.includes('🤖 AMP Code Review')) {
                   try {
                     await github.rest.pulls.dismissReview({
                       owner: context.repo.owner,
@@ -311,7 +323,7 @@ jobs:
               const title = issue.title || 'Issue';
               const description = issue.description || '';
               const suggestion = issue.suggestion ? `**Suggestion:** ${issue.suggestion}\n\n` : '';
-              const body = `**${priority} - ${title}**\n\n${description}\n\n${suggestion}---\n* Generated by Amp Code Review Bot*`;
+              const body = `**${priority} - ${title}**\n\n${description}\n\n${suggestion}---\n*🤖 Generated by AMP Code Review Bot*`;
 
               reviewComments.push({ path: file, position: diffPosition, body });
               createdIssues.push({ title, priority, file, line: actualLine });
@@ -319,7 +331,7 @@ jobs:
 
             if (reviewComments.length > 0) {
               try {
-                const reviewBody = '##  Amp Code Review\n\n' +
+                const reviewBody = '## 🤖 AMP Code Review\n\n' +
                   `Found **${reviewComments.length}** issues that need attention. See inline comments for details.\n\n` +
                   '**Issues Summary:**\n' +
                   createdIssues.map((issue, i) => `${i + 1}. ${issue.priority} - ${issue.title} (${issue.file}:${issue.line})`).join('\n') + '\n\n' +
@@ -352,7 +364,7 @@ jobs:
                 }
               }
             } else {
-              const body = '##  Amp Code Review\n\n' +
+              const body = '## 🤖 AMP Code Review\n\n' +
                 'No specific inline issues found. ✅\n\n' +
                 '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
               await github.rest.pulls.createReview({
@@ -363,3 +375,14 @@ jobs:
                 event: 'COMMENT',
               });
             }
+
+      - name: Upload review artifacts (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amp-review-artifacts
+          path: |
+            amp_input.txt
+            amp_output.txt
+            amp_review.json
+            pr_diff.txt
