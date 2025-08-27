@@ -1,63 +1,77 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useSpotifyStore } from '@/stores/spotify';
-import AudiobookCard from '@/components/AudiobookCard.vue';
+import { onMounted, ref, computed, watch } from 'vue'
+import { useSpotifyStore } from '@/stores/spotify'
+import AudiobookCard from '@/components/AudiobookCard.vue'
 
-const spotifyStore = useSpotifyStore();
-const searchQuery = ref('');
+const spotifyStore = useSpotifyStore()
+const searchQuery = ref('')
+const multiCastOnly = ref<boolean>(localStorage.getItem('multiCastOnly') === 'true')
+
+watch(multiCastOnly, (val) => {
+  localStorage.setItem('multiCastOnly', String(val))
+})
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
-  }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  let list = spotifyStore.audiobooks
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim()
+    list = list.filter((audiobook) => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true
       }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+
+      // Search by author name
+      const authorMatch = audiobook.authors.some((author) => author.name.toLowerCase().includes(query))
+
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some((narrator) => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query)
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false
+        }
+        return false
+      })
+
+      return authorMatch || narratorMatch
+    })
+  }
+
+  if (multiCastOnly.value) {
+    list = list.filter((audiobook) => Array.isArray(audiobook.narrators) && audiobook.narrators.length > 1)
+  }
+
+  return list
+})
 
 onMounted(() => {
-  spotifyStore.fetchAudiobooks();
-});
+  spotifyStore.fetchAudiobooks()
+})
 </script>
 
 <template>
   <main>
-
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls">
+          <div class="search-container">
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="Search titles, authors or narrators..."
+              class="search-input"
+            />
+          </div>
+          <label class="toggle" :class="{ active: multiCastOnly }">
+            <input type="checkbox" v-model="multiCastOnly" aria-label="Multi-Cast Only" />
+            <span class="toggle-label">Multi-Cast Only</span>
+          </label>
         </div>
       </div>
-      
+
       <div v-if="spotifyStore.isLoading" class="loading">
         <div class="spinner"></div>
         <p>Loading audiobooks...</p>
@@ -67,13 +81,11 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
-          <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
-            :key="audiobook.id" 
-            :audiobook="audiobook" 
-          />
+          <AudiobookCard v-for="audiobook in filteredAudiobooks" :key="audiobook.id" :audiobook="audiobook" />
         </div>
       </div>
     </section>
@@ -124,6 +136,12 @@ onMounted(() => {
   gap: 20px;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .audiobooks h2 {
   font-size: 32px;
   color: #2a2d3e;
@@ -164,6 +182,31 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  background: #f0f2fa;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.toggle input {
+  accent-color: #8a42ff;
+}
+
+.toggle.active {
+  background: #e9ddff;
+}
+
+.toggle .toggle-label {
+  font-size: 14px;
+  color: #2a2d3e;
 }
 
 .audiobook-grid {
