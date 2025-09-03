@@ -3,27 +3,39 @@ import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
+defineOptions({ name: 'AudiobooksView' });
+
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
-  }
-  
   const query = searchQuery.value.toLowerCase().trim();
+  
   return spotifyStore.audiobooks.filter(audiobook => {
+    // Apply multi-cast filter - only show books with > 1 narrator if toggle is enabled
+    if (multiCastOnly.value) {
+      if (!Array.isArray(audiobook.narrators) || audiobook.narrators.length <= 1) {
+        return false;
+      }
+    }
+    
+    // If no search query, show all remaining books
+    if (!query) {
+      return true;
+    }
+    
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
     }
     
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
+    // Search by author name (with null guard)
+    const authorMatch = audiobook.authors?.some(author => 
+      author.name?.toLowerCase().includes(query)
+    ) ?? false;
     
-    // Search by narrator
+    // Search by narrator (with existing null guard)
     const narratorMatch = audiobook.narrators?.some(narrator => {
       if (typeof narrator === 'string') {
         return narrator.toLowerCase().includes(query);
@@ -31,7 +43,7 @@ const filteredAudiobooks = computed(() => {
         return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
       }
       return false;
-    });
+    }) ?? false;
     
     return authorMatch || narratorMatch;
   });
@@ -48,13 +60,27 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="filter-controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="filter-container">
+            <label class="multi-cast-toggle" for="multi-cast-toggle">
+              <input 
+                id="multi-cast-toggle"
+                type="checkbox" 
+                v-model="multiCastOnly"
+                class="toggle-input"
+                aria-label="Filter audiobooks with multiple narrators"
+              />
+              <span class="toggle-label">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -143,9 +169,23 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
-  width: 300px;
+  min-width: 220px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.filter-container {
+  display: flex;
+  align-items: center;
 }
 
 .search-input {
@@ -164,6 +204,56 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2a2d3e;
+  user-select: none;
+}
+
+.toggle-input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #c5c7d4;
+  border-radius: 4px;
+  margin-right: 8px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-input:checked {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  border-color: #8a42ff;
+}
+
+.toggle-input:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.toggle-input:focus-visible {
+  outline: 2px solid #8a42ff;
+  outline-offset: 2px;
+}
+
+.toggle-label {
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.multi-cast-toggle:hover .toggle-label {
+  color: #8a42ff;
 }
 
 .audiobook-grid {
