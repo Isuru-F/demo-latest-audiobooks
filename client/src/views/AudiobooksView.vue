@@ -3,36 +3,39 @@ import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
+defineOptions({ name: 'AudiobooksView' });
+
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 const multiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
-  let books = spotifyStore.audiobooks;
-  
-  // Apply multi-cast filter first
-  if (multiCastOnly.value) {
-    books = books.filter(audiobook => audiobook.narrators && audiobook.narrators.length > 1);
-  }
-  
-  // Apply search filter if there's a search query
-  if (!searchQuery.value.trim()) {
-    return books;
-  }
-  
   const query = searchQuery.value.toLowerCase().trim();
-  return books.filter(audiobook => {
+  
+  return spotifyStore.audiobooks.filter(audiobook => {
+    // Apply multi-cast filter - only show books with > 1 narrator if toggle is enabled
+    if (multiCastOnly.value) {
+      if (!Array.isArray(audiobook.narrators) || audiobook.narrators.length <= 1) {
+        return false;
+      }
+    }
+    
+    // If no search query, show all remaining books
+    if (!query) {
+      return true;
+    }
+    
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
     }
     
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
+    // Search by author name (with null guard)
+    const authorMatch = audiobook.authors?.some(author => 
+      author.name?.toLowerCase().includes(query)
+    ) ?? false;
     
-    // Search by narrator
+    // Search by narrator (with existing null guard)
     const narratorMatch = audiobook.narrators?.some(narrator => {
       if (typeof narrator === 'string') {
         return narrator.toLowerCase().includes(query);
@@ -40,7 +43,7 @@ const filteredAudiobooks = computed(() => {
         return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
       }
       return false;
-    });
+    }) ?? false;
     
     return authorMatch || narratorMatch;
   });
@@ -67,11 +70,13 @@ onMounted(() => {
             />
           </div>
           <div class="filter-container">
-            <label class="multi-cast-toggle">
+            <label class="multi-cast-toggle" for="multi-cast-toggle">
               <input 
+                id="multi-cast-toggle"
                 type="checkbox" 
                 v-model="multiCastOnly"
                 class="toggle-input"
+                aria-label="Filter audiobooks with multiple narrators"
               />
               <span class="toggle-label">Multi-Cast Only</span>
             </label>
@@ -173,7 +178,9 @@ onMounted(() => {
 
 .search-container {
   position: relative;
-  width: 300px;
+  min-width: 220px;
+  width: 100%;
+  max-width: 300px;
 }
 
 .filter-container {
@@ -233,6 +240,11 @@ onMounted(() => {
   color: white;
   font-size: 12px;
   font-weight: bold;
+}
+
+.toggle-input:focus-visible {
+  outline: 2px solid #8a42ff;
+  outline-offset: 2px;
 }
 
 .toggle-label {
