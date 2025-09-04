@@ -5,35 +5,55 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortBy = ref('none');
 
-const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+const filteredAndSortedAudiobooks = computed(() => {
+  // First filter by search query
+  let filtered = spotifyStore.audiobooks;
+  
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = spotifyStore.audiobooks.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
+  // Then sort the filtered results
+  if (sortBy.value === 'none') {
+    return filtered;
+  }
+  
+  return [...filtered].sort((a, b) => {
+    const dateA = new Date(a.release_date);
+    const dateB = new Date(b.release_date);
+    
+    if (sortBy.value === 'date-asc') {
+      return dateA.getTime() - dateB.getTime();
+    } else if (sortBy.value === 'date-desc') {
+      return dateB.getTime() - dateA.getTime();
     }
     
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-      }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
+    return 0;
   });
 });
 
@@ -48,13 +68,22 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="sort-container">
+            <select v-model="sortBy" class="sort-select">
+              <option value="none">Default Order</option>
+              <option value="date-asc">Release Date (Oldest First)</option>
+              <option value="date-desc">Release Date (Newest First)</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -67,10 +96,10 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAndSortedAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
+            v-for="audiobook in filteredAndSortedAudiobooks" 
             :key="audiobook.id" 
             :audiobook="audiobook" 
           />
@@ -124,6 +153,13 @@ onMounted(() => {
   gap: 20px;
 }
 
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .audiobooks h2 {
   font-size: 32px;
   color: #2a2d3e;
@@ -148,6 +184,10 @@ onMounted(() => {
   width: 300px;
 }
 
+.sort-container {
+  position: relative;
+}
+
 .search-input {
   width: 100%;
   padding: 12px 20px;
@@ -161,6 +201,25 @@ onMounted(() => {
 }
 
 .search-input:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
+}
+
+.sort-select {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.sort-select:focus {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;

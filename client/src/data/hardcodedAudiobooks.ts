@@ -30,7 +30,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Kumi Taguchi",
         "type": "audiobook",
         "uri": "spotify:show:23lmTQFk8CNJkXuQBsQb5q",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2024-11-15"
       },
       {
         "authors": [{"name": "Avery Keelan"}],
@@ -55,7 +56,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Avery Keelan",
         "type": "audiobook",
         "uri": "spotify:show:37bBckI0wsIJ18vhpbI5Xe",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2023-08-22"
       },
       {
         "authors": [{"name": "Sara Cate"}],
@@ -80,7 +82,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Sara Cate",
         "type": "audiobook",
         "uri": "spotify:show:5bP0QmBOmLAjsYbLZDOv6e",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2024-03-12"
       },
       {
         "authors": [{"name": "Christina Lauren"}],
@@ -105,7 +108,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Christina Lauren",
         "type": "audiobook",
         "uri": "spotify:show:3WD3PPKjefaOvL3m0BDccf",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2024-09-03"
       },
       {
         "authors": [{"name": "Danilo Rivera"}],
@@ -130,7 +134,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Danilo Rivera",
         "type": "audiobook",
         "uri": "spotify:show:7jwuSggdBRdvFkXub6pyGV",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2023-05-10"
       },
       {
         "authors": [{"name": "Holden Sheppard"}],
@@ -155,7 +160,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Holden Sheppard",
         "type": "audiobook",
         "uri": "spotify:show:7LVvU15ADkDncKFkt8DyTV",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2019-07-18"
       },
       {
         "authors": [{"name": "Honor Jones"}],
@@ -180,7 +186,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Honor Jones",
         "type": "audiobook",
         "uri": "spotify:show:7Mknmqz9TvNkbnvfbs9hAF",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2025-01-07"
       },
       {
         "authors": [{"name": "Richard Bienstock"}, {"name": "Tom Beaujour"}],
@@ -205,7 +212,8 @@ export const hardcodedAudiobooksResponse = {
         "publisher": "Richard Bienstock, Tom Beaujour",
         "type": "audiobook",
         "uri": "spotify:show:10HdVql81RLjnDikrpNHAY",
-        "total_chapters": null
+        "total_chapters": null,
+        "release_date": "2024-06-25"
       }
     ]
   }
