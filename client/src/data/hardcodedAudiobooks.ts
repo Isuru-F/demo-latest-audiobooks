@@ -28,6 +28,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "The Good Daughter: A memoir of losing my father and finding home",
         "narrators": [{"name": "Kumi Taguchi"}],
         "publisher": "Kumi Taguchi",
+        "release_date": "2024-12-15",
         "type": "audiobook",
         "uri": "spotify:show:23lmTQFk8CNJkXuQBsQb5q",
         "total_chapters": null
@@ -53,6 +54,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Offside: Rules of the Game, Book 1",
         "narrators": [{"name": "Stella Bloom"}, {"name": "Gabriel Spires"}],
         "publisher": "Avery Keelan",
+        "release_date": "2024-11-28",
         "type": "audiobook",
         "uri": "spotify:show:37bBckI0wsIJ18vhpbI5Xe",
         "total_chapters": null
@@ -78,6 +80,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Keep Me",
         "narrators": [{"name": "Kelli Tager"}],
         "publisher": "Sara Cate",
+        "release_date": "2024-10-22",
         "type": "audiobook",
         "uri": "spotify:show:5bP0QmBOmLAjsYbLZDOv6e",
         "total_chapters": null
@@ -103,6 +106,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "The Paradise Problem: A sparkling opposites-attract, fake-dating romance",
         "narrators": [{"name": "Jon Root"}, {"name": "Pattie Murin"}],
         "publisher": "Christina Lauren",
+        "release_date": "2024-09-14",
         "type": "audiobook",
         "uri": "spotify:show:3WD3PPKjefaOvL3m0BDccf",
         "total_chapters": null
@@ -128,6 +132,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Tagalog Language Fundamentals: A beginner course to speak and understand Tagalog",
         "narrators": [{"name": "Danilo Rivera"}],
         "publisher": "Danilo Rivera",
+        "release_date": "2024-08-05",
         "type": "audiobook",
         "uri": "spotify:show:7jwuSggdBRdvFkXub6pyGV",
         "total_chapters": null
@@ -153,6 +158,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Invisible Boys",
         "narrators": [{"name": "Nic English"}],
         "publisher": "Holden Sheppard",
+        "release_date": "2024-07-18",
         "type": "audiobook",
         "uri": "spotify:show:7LVvU15ADkDncKFkt8DyTV",
         "total_chapters": null
@@ -178,6 +184,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Sleep: The stunning and moving new debut novel of 2025 – 'Beautiful' Ann Patchett",
         "narrators": [{"name": "Rebecca Lowman"}],
         "publisher": "Honor Jones",
+        "release_date": "2024-06-30",
         "type": "audiobook",
         "uri": "spotify:show:7Mknmqz9TvNkbnvfbs9hAF",
         "total_chapters": null
@@ -203,6 +210,7 @@ export const hardcodedAudiobooksResponse = {
         "name": "Lollapalooza: The Uncensored Story of Alternative Rock's Wildest Festival",
         "narrators": [{"name": "Dylan Reilly Fitzpatrick"}],
         "publisher": "Richard Bienstock, Tom Beaujour",
+        "release_date": "2024-05-12",
         "type": "audiobook",
         "uri": "spotify:show:10HdVql81RLjnDikrpNHAY",
         "total_chapters": null
