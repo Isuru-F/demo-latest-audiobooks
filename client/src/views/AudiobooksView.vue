@@ -1,18 +1,43 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
+
+// Load toggle state from localStorage
+const storedToggleState = localStorage.getItem('multiCastOnly');
+if (storedToggleState !== null) {
+  multiCastOnly.value = JSON.parse(storedToggleState);
+}
+
+// Watch for changes and persist to localStorage
+watch(multiCastOnly, (newValue) => {
+  localStorage.setItem('multiCastOnly', JSON.stringify(newValue));
+});
+
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let books = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter first if enabled
+  if (multiCastOnly.value) {
+    books = books.filter(isMultiCast);
   }
   
+  // If no search query, return the filtered books
+  if (!searchQuery.value.trim()) {
+    return books;
+  }
+  
+  // Apply text search to the already filtered books
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return books.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -48,13 +73,27 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="search-controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="toggle-container">
+            <label class="toggle-label" for="multicast-toggle">
+              <input 
+                type="checkbox" 
+                id="multicast-toggle"
+                v-model="multiCastOnly"
+                class="toggle-checkbox"
+              />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Multi-Cast Only</span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -67,7 +106,13 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly && !searchQuery.trim() 
+            ? 'No multi-cast audiobooks available.' 
+            : multiCastOnly && searchQuery.trim() 
+            ? 'No multi-cast audiobooks match your search criteria.'
+            : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -143,6 +188,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +216,67 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  gap: 12px;
+}
+
+.toggle-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  background: #ccc;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-checkbox:checked + .toggle-slider::before {
+  transform: translateX(26px);
+}
+
+.toggle-checkbox:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px rgba(138, 66, 255, 0.3);
+}
+
+.toggle-text {
+  font-size: 14px;
+  color: #2a2d3e;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .audiobook-grid {
