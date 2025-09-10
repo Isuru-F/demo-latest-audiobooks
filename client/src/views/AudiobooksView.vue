@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
@@ -7,39 +7,38 @@ const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 const multiCastOnly = ref(false);
 
-// Load saved state from localStorage
-onMounted(() => {
-  const savedState = localStorage.getItem('multiCastOnly');
-  if (savedState !== null) {
-    multiCastOnly.value = JSON.parse(savedState);
-  }
-});
+// Load saved toggle state from localStorage
+const savedToggleState = localStorage.getItem('multiCastOnly');
+if (savedToggleState !== null) {
+  multiCastOnly.value = JSON.parse(savedToggleState);
+}
 
-// Save state to localStorage when changed
-watch(multiCastOnly, (newValue) => {
-  localStorage.setItem('multiCastOnly', JSON.stringify(newValue));
-});
+// Save toggle state to localStorage when it changes
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+  localStorage.setItem('multiCastOnly', JSON.stringify(multiCastOnly.value));
+};
 
-// Helper function to check if audiobook has multiple narrators
+// Helper function to check if an audiobook has multiple narrators
 const isMultiCast = (audiobook: any): boolean => {
   return audiobook.narrators && audiobook.narrators.length > 1;
 };
 
 const filteredAudiobooks = computed(() => {
-  let result = spotifyStore.audiobooks;
+  let books = spotifyStore.audiobooks;
   
-  // Apply multi-cast filter if enabled
+  // Apply multi-cast filter first
   if (multiCastOnly.value) {
-    result = result.filter(audiobook => isMultiCast(audiobook));
+    books = books.filter(isMultiCast);
   }
   
-  // Apply search query if provided
+  // Then apply search filter
   if (!searchQuery.value.trim()) {
-    return result;
+    return books;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return result.filter(audiobook => {
+  return books.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -75,23 +74,26 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
-          <label class="multi-cast-toggle" :class="{ active: multiCastOnly }">
+        <div class="controls-container">
+          <div class="search-container">
             <input 
-              type="checkbox" 
-              v-model="multiCastOnly"
-              class="toggle-checkbox"
-              aria-label="Filter multi-cast audiobooks only"
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
             />
-            <span class="toggle-slider"></span>
-            <span class="toggle-text">Multi-Cast Only</span>
-          </label>
+          </div>
+          <div class="toggle-container">
+            <button 
+              @click="toggleMultiCast"
+              :class="['multi-cast-toggle', { 'active': multiCastOnly }]"
+              :aria-pressed="multiCastOnly"
+              title="Show only audiobooks with multiple narrators"
+            >
+              <span class="toggle-icon">🎭</span>
+              <span class="toggle-text">Multi-Cast Only</span>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -105,7 +107,11 @@ onMounted(() => {
       </div>
       <div v-else>
         <p v-if="filteredAudiobooks.length === 0" class="no-results">
-          {{ multiCastOnly && !searchQuery ? 'No multi-cast audiobooks found.' : 'No audiobooks match your search.' }}
+          {{ multiCastOnly && !searchQuery.trim() 
+              ? 'No multi-cast audiobooks available.' 
+              : multiCastOnly 
+              ? 'No multi-cast audiobooks match your search.' 
+              : 'No audiobooks match your search.' }}
         </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
@@ -182,15 +188,20 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-.search-container {
+.controls-container {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
   flex-wrap: wrap;
 }
 
-.search-input {
+.search-container {
+  position: relative;
   width: 300px;
+}
+
+.search-input {
+  width: 100%;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -207,11 +218,85 @@ onMounted(() => {
   background: #ffffff;
 }
 
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid #e0e2e8;
+  border-radius: 30px;
+  background: #ffffff;
+  color: #2a2d3e;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.multi-cast-toggle:hover {
+  border-color: #8a42ff;
+  box-shadow: 0 4px 12px rgba(138, 66, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.multi-cast-toggle.active {
+  background: linear-gradient(135deg, #8a42ff, #e942ff);
+  border-color: #8a42ff;
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.3);
+}
+
+.multi-cast-toggle.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(138, 66, 255, 0.4);
+}
+
+.toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.toggle-text {
+  white-space: nowrap;
+}
+
 .audiobook-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 30px;
   margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .audiobooks-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .controls-container {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .search-container {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .multi-cast-toggle .toggle-text {
+    display: none;
+  }
+  
+  .multi-cast-toggle {
+    padding: 12px 16px;
+    min-width: auto;
+  }
 }
 
 @media (min-width: 1200px) {
@@ -265,81 +350,5 @@ onMounted(() => {
 
 .error button:hover {
   transform: translateY(-2px);
-}
-
-.multi-cast-toggle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: #2a2d3e;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.multi-cast-toggle:hover {
-  color: #8a42ff;
-}
-
-.multi-cast-toggle.active {
-  color: #8a42ff;
-}
-
-.toggle-checkbox {
-  display: none;
-}
-
-.toggle-slider {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  background: #e0e7ff;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.multi-cast-toggle.active .toggle-slider {
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
-}
-
-.multi-cast-toggle.active .toggle-slider::before {
-  transform: translateX(20px);
-}
-
-.toggle-text {
-  font-weight: 600;
-}
-
-@media (max-width: 768px) {
-  .search-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
-  
-  .multi-cast-toggle {
-    justify-content: center;
-  }
 }
 </style>
