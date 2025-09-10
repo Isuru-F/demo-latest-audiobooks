@@ -1,18 +1,45 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(false);
+
+// Load saved state from localStorage
+onMounted(() => {
+  const savedState = localStorage.getItem('multiCastOnly');
+  if (savedState !== null) {
+    multiCastOnly.value = JSON.parse(savedState);
+  }
+});
+
+// Save state to localStorage when changed
+watch(multiCastOnly, (newValue) => {
+  localStorage.setItem('multiCastOnly', JSON.stringify(newValue));
+});
+
+// Helper function to check if audiobook has multiple narrators
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
 
 const filteredAudiobooks = computed(() => {
+  let result = spotifyStore.audiobooks;
+  
+  // Apply multi-cast filter if enabled
+  if (multiCastOnly.value) {
+    result = result.filter(audiobook => isMultiCast(audiobook));
+  }
+  
+  // Apply search query if provided
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return result;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return result.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -55,6 +82,16 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+          <label class="multi-cast-toggle" :class="{ active: multiCastOnly }">
+            <input 
+              type="checkbox" 
+              v-model="multiCastOnly"
+              class="toggle-checkbox"
+              aria-label="Filter multi-cast audiobooks only"
+            />
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Multi-Cast Only</span>
+          </label>
         </div>
       </div>
       
@@ -67,7 +104,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly && !searchQuery ? 'No multi-cast audiobooks found.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -144,12 +183,14 @@ onMounted(() => {
 }
 
 .search-container {
-  position: relative;
-  width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .search-input {
-  width: 100%;
+  width: 300px;
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -224,5 +265,81 @@ onMounted(() => {
 
 .error button:hover {
   transform: translateY(-2px);
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2a2d3e;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.multi-cast-toggle:hover {
+  color: #8a42ff;
+}
+
+.multi-cast-toggle.active {
+  color: #8a42ff;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #e0e7ff;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.multi-cast-toggle.active .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.multi-cast-toggle.active .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-text {
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .search-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
+  
+  .multi-cast-toggle {
+    justify-content: center;
+  }
 }
 </style>
