@@ -42,9 +42,9 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
 });
 
-const formatDuration = (ms: number) => {
+const formatDuration = (ms: number | undefined) => {
   // If ms is not a valid number, return an empty string
-  if (isNaN(ms) || ms === undefined) {
+  if (!ms || isNaN(ms)) {
     return '';
   }
   

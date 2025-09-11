@@ -66,8 +66,8 @@ export interface Audiobook {
   media_type: string;
   type: string;
   uri: string;
-  total_chapters: number;
-  duration_ms: number;
+  total_chapters: number | null;
+  duration_ms?: number;
 }
 
 export interface NarratorObject {
