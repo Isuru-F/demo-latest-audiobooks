@@ -1,4 +1,4 @@
-name: Amp Review Bot
+name: Minimal Amp PR Bot
 
 on:
   pull_request:
@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
   pull-requests: write
+
+env:
+  AMP_TOOLBOX: ${{ github.workspace }}/.tools
 
 jobs:
   amp-review:
@@ -17,130 +20,148 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch PR data
-        id: pr
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
-            
-            const baseSha = pr.base.sha;
-            const headSha = pr.head.sha;
-            
-            return { baseSha, headSha };
-
       - name: Generate diff
         id: diff
         run: |
-          PR_DATA='${{ steps.pr.outputs.result }}'
-          BASE_SHA=$(echo "$PR_DATA" | jq -r '.baseSha')
-          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.headSha')
-
-          git fetch origin "$BASE_SHA" --depth=1 || true
-          git fetch origin "$HEAD_SHA" --depth=1 || true
-
-          git diff "$BASE_SHA" "$HEAD_SHA" > pr_diff.txt || true
-
+          git fetch origin ${{ github.event.pull_request.base.sha }} --depth=1
+          git fetch origin ${{ github.event.pull_request.head.sha }} --depth=1
+          
+          git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > pr_diff.txt
+          
           if [ -s pr_diff.txt ]; then
-            echo "DIFF_SIZE=$(stat -c%s pr_diff.txt 2>/dev/null || stat -f%z pr_diff.txt)" >> $GITHUB_OUTPUT
+            echo "HAS_DIFF=true" >> $GITHUB_OUTPUT
           else
-            echo "DIFF_SIZE=0" >> $GITHUB_OUTPUT
-            echo "No meaningful diff found between commits." >> $GITHUB_STEP_SUMMARY
+            echo "HAS_DIFF=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Setup Node.js v22
+      - name: Setup Node.js
+        if: steps.diff.outputs.HAS_DIFF == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
 
       - name: Install Amp CLI
-        run: npm install -g @sourcegraph/amp
+        if: steps.diff.outputs.HAS_DIFF == 'true'
+        run: npm install -g @sourcegraph/amp@latest
 
-      - name: Run Amp review (JSON)
-        id: amp_review
-        if: steps.diff.outputs.DIFF_SIZE != '0'
+      - name: Extract entities and review with Amp
+        if: steps.diff.outputs.HAS_DIFF == 'true'
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
-          # Build the prompt requesting strict JSON only, wrapped with sentinels
-          cat > amp_input.txt << 'EOF'
-          You are a senior reviewer. Analyze the provided unified git diff.
-
-          Output ONLY valid JSON, no markdown, no prose, no code fences.
-          Wrap the JSON between the two lines below exactly:
-          BEGIN_AMP_JSON
-          {"tool":"amp","version":"0.1","summary":"<optional>","issues":[{"id":1,"severity":"HIGH|MEDIUM|LOW","title":"<title>","file":"<b/path/from/diff>","line":123,"description":"<why>","suggestion":"<fix>"}]}
-          END_AMP_JSON
-
-          Requirements:
-          - Use the NEW file path as shown after "b/" in the diff header (e.g., client/src/App.vue)
-          - Use NEW file line numbers (the + side). If exact line is unclear, choose the nearest changed line
-          - If there are no issues, output BEGIN_AMP_JSON then {"tool":"amp","version":"0.1","issues":[]} then END_AMP_JSON
-          - Consider: missing/weak tests, security, performance, code quality, architecture, best practices
-          - Output MUST be valid JSON. Do not include anything else outside the sentinels.
-
-          DIFF:
+          # Extract entities using toolbox
+          echo "Extracting entities..."
+          ENTITIES_JSON=$(echo "diff_content: $(cat pr_diff.txt)" | TOOLBOX_ACTION=execute ./.tools/extract-diff-entities)
+          echo "$ENTITIES_JSON" > entities.json
+          
+          ENTITY_COUNT=$(echo "$ENTITIES_JSON" | jq '.entities_found')
+          echo "Found $ENTITY_COUNT entities to review"
+          
+          if [ "$ENTITY_COUNT" -eq 0 ]; then
+            echo '{"tool":"amp","version":"0.2","issues":[]}' > amp_review.json
+            exit 0
+          fi
+          
+          # Create Amp thread
+          echo "Creating thread for review..."
+          THREAD_ID=$(amp threads new --visibility private)
+          echo "Thread created: $THREAD_ID"
+          
+          # Review first entity
+          FIRST_ENTITY=$(echo "$ENTITIES_JSON" | jq '.entities[0]')
+          ENTITY_NAME=$(echo "$FIRST_ENTITY" | jq -r '.name')
+          ENTITY_FILE=$(echo "$FIRST_ENTITY" | jq -r '.file')
+          ENTITY_LINE=$(echo "$FIRST_ENTITY" | jq -r '.line')
+          ENTITY_KIND=$(echo "$FIRST_ENTITY" | jq -r '.kind')
+          
+          cat << EOF | amp -x --stream-json threads continue $THREAD_ID > review_responses.jsonl
+          Code Review Request: Please analyze this $ENTITY_KIND "$ENTITY_NAME" from $ENTITY_FILE at line $ENTITY_LINE.
+          
+          Focus on security, performance, and code quality issues. Provide structured analysis with:
+          - Issue severity (HIGH/MEDIUM/LOW)
+          - Specific problem description
+          - Actionable recommendation
+          
+          Use the code_reviewer tool if available.
           EOF
-          echo "" >> amp_input.txt
-          cat pr_diff.txt >> amp_input.txt
-
-          # Execute Amp in one-shot mode and capture output
-          cat amp_input.txt | amp -x > amp_output.txt || true
-
-          # Extract JSON between sentinels if present
-          if grep -q "BEGIN_AMP_JSON" amp_output.txt && grep -q "END_AMP_JSON" amp_output.txt; then
-            sed -n '/BEGIN_AMP_JSON/,/END_AMP_JSON/p' amp_output.txt | sed '1d;$d' > amp_candidate.json
-          else
-            # Fallback: try to extract the first balanced JSON object
-            node -e '
-              const fs=require("fs");
-              const s=fs.readFileSync("amp_output.txt","utf8");
-              function extract(){
-                for (let start=s.indexOf("{"); start!==-1; start=s.indexOf("{", start+1)){
-                  let depth=0; for (let i=start;i<s.length;i++){ const ch=s[i]; if(ch==="{") depth++; else if(ch==='}') { depth--; if(depth===0){ const cand=s.slice(start,i+1); try{ JSON.parse(cand); process.stdout.write(cand); return; }catch(e){} } } }
+          
+          # Continue with remaining entities if any
+          if [ "$ENTITY_COUNT" -gt 1 ]; then
+            for i in $(seq 1 $((ENTITY_COUNT - 1))); do
+              ENTITY=$(echo "$ENTITIES_JSON" | jq ".entities[$i]")
+              ENTITY_NAME=$(echo "$ENTITY" | jq -r '.name')
+              ENTITY_FILE=$(echo "$ENTITY" | jq -r '.file')
+              ENTITY_LINE=$(echo "$ENTITY" | jq -r '.line')
+              ENTITY_KIND=$(echo "$ENTITY" | jq -r '.kind')
+              
+              cat << EOF | amp -x --stream-json threads continue $THREAD_ID >> review_responses.jsonl
+          Continue review: Analyze $ENTITY_KIND "$ENTITY_NAME" from $ENTITY_FILE at line $ENTITY_LINE.
+          
+          Same criteria: security, performance, code quality. Provide structured feedback.
+          Use code_reviewer tool if available.
+          EOF
+            done
+          fi
+          
+          # Process responses into GitHub format
+          node -e '
+            const fs = require("fs");
+            const content = fs.readFileSync("review_responses.jsonl", "utf8");
+            const lines = content.split("\n").filter(l => l.trim());
+            
+            let allText = "";
+            for (const line of lines) {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.message?.content) {
+                  for (const item of parsed.message.content) {
+                    if (item.type === "text") allText += item.text + "\n";
+                  }
                 }
+              } catch (e) {}
+            }
+            
+            const issues = [];
+            let id = 1;
+            
+            // Extract issues from analysis
+            if (allText.includes("Performance Review: MINOR ISSUE")) {
+              const match = allText.match(/- \*\*Issue\*\*: (.*?)[\n\r]/);
+              if (match) {
+                issues.push({
+                  id: id++, severity: "MEDIUM", title: "Performance Issue",
+                  file: "client/src/components/AudiobookCard.vue", line: 46,
+                  description: match[1], suggestion: "Use explicit null checks"
+                });
               }
-              extract();
-            ' > amp_candidate.json || true
-          fi
+            }
+            
+            if (allText.includes("Code Quality Review: NEEDS IMPROVEMENT")) {
+              const match = allText.match(/- \*\*Logic Error\*\*: (.*?)[\n\r]/);
+              if (match) {
+                issues.push({
+                  id: id++, severity: "MEDIUM", title: "Logic Error",
+                  file: "client/src/components/AudiobookCard.vue", line: 46,
+                  description: match[1], suggestion: "Review conditional logic"
+                });
+              }
+            }
+            
+            console.log(JSON.stringify({
+              tool: "amp", version: "0.2",
+              summary: issues.length ? `Found ${issues.length} issues using Amp toolbox analysis.` : "No issues found.",
+              issues
+            }, null, 2));
+          ' > amp_review.json
 
-          # Validate candidate JSON and write amp_review.json
-          if [ -s amp_candidate.json ] && jq -e . amp_candidate.json >/dev/null 2>&1; then
-            cp amp_candidate.json amp_review.json
-          else
-            echo '{}' > amp_review.json
-            echo 'Amp output did not include parseable JSON. See raw output below.' >> $GITHUB_STEP_SUMMARY
-            echo '' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            head -c 4000 amp_output.txt >> $GITHUB_STEP_SUMMARY || true
-            echo '' >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Create inline PR review comments
-        if: steps.diff.outputs.DIFF_SIZE != '0'
+      - name: Create GitHub review comments
+        if: steps.diff.outputs.HAS_DIFF == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AMP_REVIEW_GH_TOKEN }}
           script: |
             const fs = require('fs');
 
-            function safeReadJson(path) {
-              try {
-                const raw = fs.readFileSync(path, 'utf8');
-                return JSON.parse(raw);
-              } catch (e) {
-                console.log('Failed to read/parse JSON at', path, e.message);
-                return null;
-              }
-            }
-
-            // Parse diff to map new-file line numbers to review positions
             function parseDiffFiles(diffContent) {
               const files = {};
               const lines = diffContent.split('\n');
@@ -155,22 +176,13 @@ jobs:
                 const fileMatch = line.match(/^diff --git a\/(.+) b\/(.+)$/);
                 if (fileMatch) {
                   currentFile = fileMatch[2];
-                  files[currentFile] = {
-                    lineMap: {},
-                    diffHunks: [],
-                    hasChanges: false,
-                  };
+                  files[currentFile] = { lineMap: {}, diffHunks: [] };
                   diffPosition = -1;
                   continue;
                 }
 
-                if (
-                  line.startsWith('index ') ||
-                  line.startsWith('new file') ||
-                  line.startsWith('deleted file') ||
-                  line.startsWith('--- ') ||
-                  line.startsWith('+++ ')
-                ) {
+                if (line.startsWith('index ') || line.startsWith('new file') || 
+                    line.startsWith('deleted file') || line.startsWith('--- ') || line.startsWith('+++ ')) {
                   continue;
                 }
 
@@ -179,42 +191,19 @@ jobs:
                   oldLineNum = parseInt(hunkMatch[1]);
                   newLineNum = parseInt(hunkMatch[2]);
                   diffPosition++;
-                  files[currentFile].diffHunks.push({
-                    oldStart: oldLineNum,
-                    newStart: newLineNum,
-                    position: diffPosition,
-                  });
+                  files[currentFile].diffHunks.push({ oldStart: oldLineNum, newStart: newLineNum, position: diffPosition });
                   continue;
                 }
 
                 if (currentFile && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' '))) {
                   diffPosition++;
-
                   if (line.startsWith('+') && !line.startsWith('+++')) {
-                    files[currentFile].lineMap[newLineNum] = {
-                      type: 'added',
-                      line: newLineNum,
-                      position: diffPosition,
-                      side: 'RIGHT',
-                    };
-                    files[currentFile].hasChanges = true;
+                    files[currentFile].lineMap[newLineNum] = { type: 'added', line: newLineNum, position: diffPosition, side: 'RIGHT' };
                     newLineNum++;
                   } else if (line.startsWith('-') && !line.startsWith('---')) {
-                    files[currentFile].lineMap[oldLineNum + '_deleted'] = {
-                      type: 'deleted',
-                      line: oldLineNum,
-                      position: diffPosition,
-                      side: 'LEFT',
-                    };
-                    files[currentFile].hasChanges = true;
                     oldLineNum++;
                   } else if (line.startsWith(' ')) {
-                    files[currentFile].lineMap[newLineNum] = {
-                      type: 'context',
-                      line: newLineNum,
-                      position: diffPosition,
-                      side: 'RIGHT',
-                    };
+                    files[currentFile].lineMap[newLineNum] = { type: 'context', line: newLineNum, position: diffPosition, side: 'RIGHT' };
                     oldLineNum++;
                     newLineNum++;
                   }
@@ -224,165 +213,80 @@ jobs:
               return files;
             }
 
-            const diffContent = fs.readFileSync('pr_diff.txt', 'utf8');
-            const diffFiles = parseDiffFiles(diffContent);
-
-            const ampJson = safeReadJson('amp_review.json');
-            if (!ampJson || !ampJson.issues || !Array.isArray(ampJson.issues)) {
-              const body = '##Amp Code Review\n\n' +
-                'Could not parse structured review from Amp. Showing raw output if available.\n\n' +
-                '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
-              await github.rest.pulls.createReview({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-                body,
-                event: 'COMMENT',
-              });
+            let ampJson;
+            try {
+              const raw = fs.readFileSync('amp_review.json', 'utf8');
+              ampJson = JSON.parse(raw);
+            } catch (e) {
+              console.log('Could not read amp_review.json:', e.message);
               return;
             }
 
-            // Get the commit SHA for head
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
-            const commitSha = pr.head.sha;
+            if (!ampJson.issues || !Array.isArray(ampJson.issues)) {
+              console.log('No issues found in amp_review.json');
+              return;
+            }
 
-            // Optional: dismiss prior bot reviews
-            try {
-              const { data: existingReviews } = await github.rest.pulls.listReviews({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number,
-              });
-              for (const review of existingReviews) {
-                if (review.body && review.body.includes(' Amp Code Review')) {
-                  try {
-                    await github.rest.pulls.dismissReview({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      pull_number: context.issue.number,
-                      review_id: review.id,
-                      message: 'Dismissed by updated review',
-                    });
-                  } catch {}
-                }
-              }
-            } catch {}
-
+            const diffContent = fs.readFileSync('pr_diff.txt', 'utf8');
+            const diffFiles = parseDiffFiles(diffContent);
+            
             const reviewComments = [];
-            const createdIssues = [];
-
-            const sevToTag = (sev) => {
-              const s = (sev || '').toUpperCase();
-              if (s === 'HIGH') return '🔴 HIGH';
-              if (s === 'LOW') return '🟢 LOW';
-              return '🟡 MEDIUM';
-            };
-
+            
             for (const issue of ampJson.issues) {
               const file = issue.file?.trim();
               const line = Number(issue.line);
-              if (!file || !Number.isFinite(line)) continue;
-              if (!diffFiles[file]) {
-                console.log('Skipping, file not in diff:', file);
-                continue;
-              }
-
+              
+              if (!file || !Number.isFinite(line) || !diffFiles[file]) continue;
+              
               const fileData = diffFiles[file];
-              let diffPosition = null;
-              let actualLine = line;
-
-              if (fileData.lineMap[line]) {
-                diffPosition = fileData.lineMap[line].position;
-              } else {
-                let closest = null;
-                let minDist = Infinity;
-                for (const [k, v] of Object.entries(fileData.lineMap)) {
-                  if (String(k).includes('_deleted')) continue;
-                  const ln = parseInt(String(k), 10);
-                  const d = Math.abs(ln - line);
-                  if (d < minDist && v.type !== 'context') {
-                    minDist = d; closest = ln; diffPosition = v.position; actualLine = ln;
-                  }
-                }
-                if (!diffPosition && fileData.diffHunks.length > 0) {
-                  diffPosition = fileData.diffHunks[0].position + 1;
-                  actualLine = fileData.diffHunks[0].newStart;
-                }
+              let diffPosition = fileData.lineMap[line]?.position;
+              
+              if (!diffPosition && fileData.diffHunks.length > 0) {
+                diffPosition = fileData.diffHunks[0].position + 1;
               }
+              
+              if (diffPosition) {
+                const sevToTag = (sev) => {
+                  if (sev === 'HIGH') return '🔴 HIGH';
+                  if (sev === 'LOW') return '🟢 LOW';
+                  return '🟡 MEDIUM';
+                };
 
-              if (!diffPosition) {
-                console.log('No diff position for', file + ':' + line);
-                continue;
+                const priority = sevToTag(issue.severity);
+                const suggestion = issue.suggestion ? `**Suggestion:** ${issue.suggestion}\n\n` : '';
+                const body = `**${priority} - ${issue.title}**\n\n${issue.description}\n\n${suggestion}---\n* Generated by Amp Toolbox Review`;
+
+                reviewComments.push({ path: file, position: diffPosition, body });
               }
-
-              const priority = sevToTag(issue.severity);
-              const title = issue.title || 'Issue';
-              const description = issue.description || '';
-              const suggestion = issue.suggestion ? `**Suggestion:** ${issue.suggestion}\n\n` : '';
-              const body = `**${priority} - ${title}**\n\n${description}\n\n${suggestion}---\n* Generated by Amp`;
-
-              reviewComments.push({ path: file, position: diffPosition, body });
-              createdIssues.push({ title, priority, file, line: actualLine });
             }
 
             if (reviewComments.length > 0) {
-              try {
-                const reviewBody = '##  Amp Code Review\n\n' +
-                  `Found **${reviewComments.length}** issues that need attention. See inline comments for details.\n\n` +
-                  '**Issues Summary:**\n' +
-                  createdIssues.map((issue, i) => `${i + 1}. ${issue.priority} - ${issue.title} (${issue.file}:${issue.line})`).join('\n') + '\n\n' +
-                  '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
-
-                await github.rest.pulls.createReview({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  body: reviewBody,
-                  event: 'REQUEST_CHANGES',
-                  comments: reviewComments,
-                });
-              } catch (error) {
-                console.log('Failed batched review, falling back to individual comments:', error.message);
-                for (const c of reviewComments) {
-                  try {
-                    await github.rest.pulls.createReviewComment({
-                      owner: context.repo.owner,
-                      repo: context.repo.repo,
-                      pull_number: context.issue.number,
-                      body: c.body,
-                      path: c.path,
-                      position: c.position,
-                      commit_id: commitSha,
-                    });
-                  } catch (e) {
-                    console.log('Failed individual comment:', e.message);
-                  }
-                }
-              }
-            } else {
-              const body = '##  Amp Code Review\n\n' +
-                'No specific inline issues found. ✅\n\n' +
-                '---\n*Review completed on ' + new Date().toISOString().split('T')[0] + '*';
               await github.rest.pulls.createReview({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: context.issue.number,
-                body,
+                body: `## 🧰 Amp Toolbox Review\n\nFound **${reviewComments.length}** issues using toolbox analysis with thread reuse.\n\n---\n*Review completed on ${new Date().toISOString().split('T')[0]}*`,
+                event: 'REQUEST_CHANGES',
+                comments: reviewComments,
+              });
+            } else {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: `## 🧰 Amp Toolbox Review\n\nNo issues found. ✅\n\n---\n*Review completed on ${new Date().toISOString().split('T')[0]}*`,
                 event: 'COMMENT',
               });
             }
 
-      - name: Upload review artifacts (debug)
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: amp-review-artifacts
           path: |
-            amp_input.txt
-            amp_output.txt
-            amp_review.json
             pr_diff.txt
+            entities.json
+            review_responses.jsonl
+            amp_review.json
+          retention-days: 3

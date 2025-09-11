@@ -1,0 +1,116 @@
+#!/usr/bin/env node
+
+// Toolbox Tool - Code Entity Reviewer
+
+const action = process.env.TOOLBOX_ACTION || '';
+
+switch (action) {
+  case 'describe':
+    console.log(`name: code_reviewer
+description: Review a specific code entity (function, class, method) for security, performance, and quality issues
+entity_file: string The file path containing the entity
+entity_start: number Starting line number of the entity
+entity_end: number Ending line number of the entity
+entity_kind: string The type of entity (function, method, class, etc.)
+entity_name: string The name of the entity`);
+    break;
+
+  case 'execute':
+    let input = '';
+    
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+      input += chunk;
+    });
+    
+    process.stdin.on('end', async () => {
+      try {
+        // Extract parameters
+        const fileMatch = input.match(/^entity_file:\s*(.*)$/m);
+        const startMatch = input.match(/^entity_start:\s*(.*)$/m);
+        const endMatch = input.match(/^entity_end:\s*(.*)$/m);
+        const kindMatch = input.match(/^entity_kind:\s*(.*)$/m);
+        const nameMatch = input.match(/^entity_name:\s*(.*)$/m);
+        
+        const entityFile = fileMatch ? fileMatch[1].trim() : '';
+        const entityStart = startMatch ? parseInt(startMatch[1].trim()) : 0;
+        const entityEnd = endMatch ? parseInt(endMatch[1].trim()) : 0;
+        const entityKind = kindMatch ? kindMatch[1].trim() : '';
+        const entityName = nameMatch ? nameMatch[1].trim() : '';
+        
+        if (!entityFile || !entityStart || !entityEnd || !entityKind || !entityName) {
+          console.error('Error: All parameters required: entity_file, entity_start, entity_end, entity_kind, entity_name');
+          process.exit(1);
+        }
+        
+        // Read the entity content from the file
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        let entityContent;
+        try {
+          const fullContent = fs.readFileSync(entityFile, 'utf8');
+          const lines = fullContent.split('\n');
+          entityContent = lines.slice(entityStart - 1, entityEnd).join('\n');
+        } catch (error) {
+          console.error(`Error reading file ${entityFile}: ${error.message}`);
+          process.exit(1);
+        }
+        
+        // Get file extension for syntax highlighting
+        const ext = path.extname(entityFile);
+        const langMap = {
+          '.ts': 'typescript', '.tsx': 'typescript',
+          '.js': 'javascript', '.jsx': 'javascript', 
+          '.py': 'python', '.go': 'go', '.java': 'java',
+          '.c': 'c', '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp',
+          '.rs': 'rust', '.rb': 'ruby', '.php': 'php'
+        };
+        const language = langMap[ext] || 'text';
+        
+        // Perform the code review analysis
+        console.log(`## Code Review: ${entityKind} "${entityName}" in ${entityFile}
+
+### Security Analysis
+- **Input Validation**: Check if user inputs are properly validated and sanitized
+- **Authentication/Authorization**: Verify proper access controls are in place
+- **Injection Attacks**: Look for SQL injection, command injection, or XSS vulnerabilities
+- **Sensitive Data**: Ensure secrets, passwords, or sensitive data are not exposed
+
+### Performance Analysis  
+- **Algorithm Complexity**: Identify inefficient loops, nested operations, or O(n²) patterns
+- **Memory Usage**: Check for memory leaks, unnecessary object creation, or large allocations
+- **Database Operations**: Look for N+1 queries, missing indexes, or inefficient queries
+- **Caching**: Identify opportunities for caching frequently accessed data
+
+### Code Quality Analysis
+- **Error Handling**: Verify proper exception handling and error recovery
+- **Type Safety**: Check for proper type annotations and null safety
+- **Code Complexity**: Identify overly complex functions that should be refactored
+- **Maintainability**: Look for code duplication, unclear naming, or missing documentation
+
+### Code to Review:
+\`\`\`${language}
+${entityContent}
+\`\`\`
+
+### Recommendations:
+Based on the analysis above, provide specific actionable recommendations for improving this code entity. Focus on:
+1. Critical security vulnerabilities (HIGH priority)
+2. Performance bottlenecks (MEDIUM priority)  
+3. Code quality improvements (LOW priority)
+
+Format recommendations as:
+- **[PRIORITY]**: Brief description - Specific suggestion`);
+        
+      } catch (error) {
+        console.error(`Error reviewing code: ${error.message}`);
+        process.exit(1);
+      }
+    });
+    break;
+
+  default:
+    console.error("Error: TOOLBOX_ACTION must be 'describe' or 'execute'");
+    process.exit(1);
+}
