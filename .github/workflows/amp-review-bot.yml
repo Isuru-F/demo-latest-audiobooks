@@ -40,9 +40,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Amp CLI
+      - name: Install dependencies
         if: steps.diff.outputs.HAS_DIFF == 'true'
-        run: npm install -g @sourcegraph/amp@latest
+        run: |
+          # Install tree-sitter for the toolbox tools
+          npm install tree-sitter@0.20.4 tree-sitter-typescript@0.20.3 || true
+          
+          # Install Amp CLI
+          npm install -g @sourcegraph/amp@latest
 
       - name: Extract entities and review with Amp
         if: steps.diff.outputs.HAS_DIFF == 'true'
@@ -124,74 +129,54 @@ jobs:
             const issues = [];
             let id = 1;
             
-            // Split analysis by individual entity reviews
-            const entityReviews = allText.split(/Continue review:|Code Review Request:/).slice(1);
+            // Extract issues using actual Amp format: **SEVERITY**: Description
+            const issuePattern = /\\*\\*(HIGH|MEDIUM|LOW)\\*\\*: ([^\\n\\r]+)/g;
+            let match;
             
-            for (const review of entityReviews) {
-              if (!review.trim()) continue;
+            while ((match = issuePattern.exec(allText)) !== null) {
+              const severity = match[1];
+              const description = match[2];
               
-              // Extract entity info from the review prompt
-              const entityFileMatch = review.match(/from ([^\\s]+\\.(?:vue|ts|js|yml))/);
-              const entityLineMatch = review.match(/at line (\\d+)/);
+              // Skip workflow file issues and focus on client code
+              if (description.includes("workflow") || description.includes("sevToTag") || description.includes("lines =")) {
+                continue;
+              }
               
-              if (!entityFileMatch) continue;
+              // Extract file context from surrounding text
+              let file = "unknown", line = 1;
               
-              const entityFile = entityFileMatch[1];
-              const entityLine = entityLineMatch ? parseInt(entityLineMatch[1], 10) : 1;
+              // Find the entity being reviewed in context
+              const contextStart = Math.max(0, match.index - 500);
+              const contextText = allText.slice(contextStart, match.index + 500);
               
-              // Extract only HIGH severity issues to avoid overwhelming the PR
-              const highIssues = review.matchAll(/### \\*\\*HIGH\\*\\*: ([^\\n]+)(.*?)(?=###|\\*\\*Overall Assessment\\*\\*|$)/gs);
+              const fileMatch = contextText.match(/from ([^\\s]+\\.(?:vue|ts|js))/);
+              const lineMatch = contextText.match(/at line (\\d+)/);
               
-              for (const match of highIssues) {
-                const title = match[1].replace(/^[^-]+-\\s*/, "").trim();
-                const content = match[2];
+              if (fileMatch) file = fileMatch[1];
+              if (lineMatch) line = parseInt(lineMatch[1], 10);
+              
+              // Only include HIGH and critical MEDIUM issues for Vue/TypeScript files
+              if ((severity === "HIGH" || 
+                  (severity === "MEDIUM" && (description.includes("validation") || description.includes("security") || description.includes("type safety")))) &&
+                  file.includes("client/src/")) {
                 
-                let suggestion = "See analysis for details";
-                const recommendationMatch = content.match(/\\*\\*Recommendation\\*\\*:(.*?)(?=\\*\\*|```|$)/s);
+                let suggestion = "See analysis for specific recommendations";
+                
+                // Look for recommendation in nearby text
+                const recommendationMatch = contextText.match(/-\\s*(.{20,200})(?=\\n|$)/);
                 if (recommendationMatch) {
-                  suggestion = recommendationMatch[1].trim().slice(0, 200);
+                  suggestion = recommendationMatch[1].trim().slice(0, 150);
                 }
                 
                 issues.push({
                   id: id++,
-                  severity: "HIGH",
-                  title: title.slice(0, 80),
-                  file: entityFile,
-                  line: entityLine,
-                  description: title.slice(0, 200),
-                  suggestion: suggestion.replace(/\\n|\\t/g, " ").trim()
+                  severity,
+                  title: description.split(" - ")[0].slice(0, 60), // Get title before dash
+                  file,
+                  line,
+                  description: description.slice(0, 180),
+                  suggestion
                 });
-              }
-              
-              // Also extract some critical MEDIUM issues for actual Vue code files (not workflow files)
-              if (entityFile.includes("client/src/")) {
-                const mediumIssues = review.matchAll(/### \\*\\*MEDIUM\\*\\*: ([^\\n]+)(.*?)(?=###|\\*\\*Overall Assessment\\*\\*|$)/gs);
-                let mediumCount = 0;
-                
-                for (const match of mediumIssues) {
-                  if (mediumCount >= 2) break; // Limit to 2 medium issues per entity
-                  
-                  const title = match[1].replace(/^[^-]+-\\s*/, "").trim();
-                  const content = match[2];
-                  
-                  let suggestion = "See analysis for details";
-                  const recommendationMatch = content.match(/\\*\\*Recommendation\\*\\*:(.*?)(?=\\*\\*|```|$)/s);
-                  if (recommendationMatch) {
-                    suggestion = recommendationMatch[1].trim().slice(0, 200);
-                  }
-                  
-                  issues.push({
-                    id: id++,
-                    severity: "MEDIUM",
-                    title: title.slice(0, 80),
-                    file: entityFile,
-                    line: entityLine,
-                    description: title.slice(0, 200),
-                    suggestion: suggestion.replace(/\\n|\\t/g, " ").trim()
-                  });
-                  
-                  mediumCount++;
-                }
               }
             }
             
