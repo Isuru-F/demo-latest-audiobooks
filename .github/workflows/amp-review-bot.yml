@@ -44,7 +44,7 @@ jobs:
         if: steps.diff.outputs.HAS_DIFF == 'true'
         run: |
           # Install tree-sitter for the toolbox tools
-          npm install tree-sitter@0.20.4 tree-sitter-typescript@0.20.3 || true
+          npm install tree-sitter@0.20.4 tree-sitter-typescript@0.20.3 tree-sitter-javascript@0.21.2 || true
           
           # Install Amp CLI
           npm install -g @sourcegraph/amp@latest
@@ -129,53 +129,60 @@ jobs:
             const issues = [];
             let id = 1;
             
-            // Extract issues using actual Amp format: **SEVERITY**: Description
-            const issuePattern = /\\*\\*(HIGH|MEDIUM|LOW)\\*\\*: ([^\\n\\r]+)/g;
-            let match;
+            // Split by entity review sections
+            const reviewSections = allText.split(/Continue review:|Code Review Request:/).filter(s => s.trim());
             
-            while ((match = issuePattern.exec(allText)) !== null) {
-              const severity = match[1];
-              const description = match[2];
+            for (const section of reviewSections) {
+              // Extract entity info
+              const entityMatch = section.match(/Analyze .*? "([^"]+)" from ([^\\s]+\\.(?:vue|ts|js)) at line (\\d+)/);
               
-              // Skip workflow file issues and focus on client code
-              if (description.includes("workflow") || description.includes("sevToTag") || description.includes("lines =")) {
-                continue;
+              if (!entityMatch) continue;
+              
+              const entityName = entityMatch[1];
+              const file = entityMatch[2];
+              const line = parseInt(entityMatch[3], 10);
+              
+              // Only process client code files
+              if (!file.includes("client/src/")) continue;
+              
+              console.log(`Processing ${entityName} in ${file}:${line}`);
+              
+              // Extract MEDIUM issues for security/validation/type safety
+              const mediumMatches = section.matchAll(/\\*\\*MEDIUM\\*\\*: ([^\\n]+)/g);
+              
+              for (const match of mediumMatches) {
+                const description = match[1];
+                
+                // Focus on critical MEDIUM issues
+                if (description.includes("localStorage access without error handling") || 
+                    description.includes("Weak typing with ") || 
+                    description.includes("Missing null safety")) {
+                  
+                  issues.push({
+                    id: id++,
+                    severity: "MEDIUM",
+                    title: description.split(" - ")[0].slice(0, 50),
+                    file,
+                    line,
+                    description: description.slice(0, 150),
+                    suggestion: "Add proper error handling and type safety"
+                  });
+                }
               }
               
-              // Extract file context from surrounding text
-              let file = "unknown", line = 1;
-              
-              // Find the entity being reviewed in context
-              const contextStart = Math.max(0, match.index - 500);
-              const contextText = allText.slice(contextStart, match.index + 500);
-              
-              const fileMatch = contextText.match(/from ([^\\s]+\\.(?:vue|ts|js))/);
-              const lineMatch = contextText.match(/at line (\\d+)/);
-              
-              if (fileMatch) file = fileMatch[1];
-              if (lineMatch) line = parseInt(lineMatch[1], 10);
-              
-              // Only include HIGH and critical MEDIUM issues for Vue/TypeScript files
-              if ((severity === "HIGH" || 
-                  (severity === "MEDIUM" && (description.includes("validation") || description.includes("security") || description.includes("type safety")))) &&
-                  file.includes("client/src/")) {
-                
-                let suggestion = "See analysis for specific recommendations";
-                
-                // Look for recommendation in nearby text
-                const recommendationMatch = contextText.match(/-\\s*(.{20,200})(?=\\n|$)/);
-                if (recommendationMatch) {
-                  suggestion = recommendationMatch[1].trim().slice(0, 150);
-                }
+              // Also check for HIGH issues
+              const highMatches = section.matchAll(/\\*\\*HIGH\\*\\*: ([^\\n]+)/g);
+              for (const match of highMatches) {
+                const description = match[1];
                 
                 issues.push({
                   id: id++,
-                  severity,
-                  title: description.split(" - ")[0].slice(0, 60), // Get title before dash
+                  severity: "HIGH",
+                  title: description.split(" - ")[0].slice(0, 50),
                   file,
                   line,
-                  description: description.slice(0, 180),
-                  suggestion
+                  description: description.slice(0, 150),
+                  suggestion: "Address this high-priority security/performance issue"
                 });
               }
             }
