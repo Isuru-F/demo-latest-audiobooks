@@ -124,26 +124,74 @@ jobs:
             const issues = [];
             let id = 1;
             
-            // Extract issues from analysis
-            if (allText.includes("Performance Review: MINOR ISSUE")) {
-              const match = allText.match(/- \*\*Issue\*\*: (.*?)[\n\r]/);
-              if (match) {
+            // Split analysis by individual entity reviews
+            const entityReviews = allText.split(/Continue review:|Code Review Request:/).slice(1);
+            
+            for (const review of entityReviews) {
+              if (!review.trim()) continue;
+              
+              // Extract entity info from the review prompt
+              const entityFileMatch = review.match(/from ([^\\s]+\\.(?:vue|ts|js|yml))/);
+              const entityLineMatch = review.match(/at line (\\d+)/);
+              
+              if (!entityFileMatch) continue;
+              
+              const entityFile = entityFileMatch[1];
+              const entityLine = entityLineMatch ? parseInt(entityLineMatch[1], 10) : 1;
+              
+              // Extract only HIGH severity issues to avoid overwhelming the PR
+              const highIssues = review.matchAll(/### \\*\\*HIGH\\*\\*: ([^\\n]+)(.*?)(?=###|\\*\\*Overall Assessment\\*\\*|$)/gs);
+              
+              for (const match of highIssues) {
+                const title = match[1].replace(/^[^-]+-\\s*/, "").trim();
+                const content = match[2];
+                
+                let suggestion = "See analysis for details";
+                const recommendationMatch = content.match(/\\*\\*Recommendation\\*\\*:(.*?)(?=\\*\\*|```|$)/s);
+                if (recommendationMatch) {
+                  suggestion = recommendationMatch[1].trim().slice(0, 200);
+                }
+                
                 issues.push({
-                  id: id++, severity: "MEDIUM", title: "Performance Issue",
-                  file: "client/src/components/AudiobookCard.vue", line: 46,
-                  description: match[1], suggestion: "Use explicit null checks"
+                  id: id++,
+                  severity: "HIGH",
+                  title: title.slice(0, 80),
+                  file: entityFile,
+                  line: entityLine,
+                  description: title.slice(0, 200),
+                  suggestion: suggestion.replace(/\\n|\\t/g, " ").trim()
                 });
               }
-            }
-            
-            if (allText.includes("Code Quality Review: NEEDS IMPROVEMENT")) {
-              const match = allText.match(/- \*\*Logic Error\*\*: (.*?)[\n\r]/);
-              if (match) {
-                issues.push({
-                  id: id++, severity: "MEDIUM", title: "Logic Error",
-                  file: "client/src/components/AudiobookCard.vue", line: 46,
-                  description: match[1], suggestion: "Review conditional logic"
-                });
+              
+              // Also extract some critical MEDIUM issues for actual Vue code files (not workflow files)
+              if (entityFile.includes("client/src/")) {
+                const mediumIssues = review.matchAll(/### \\*\\*MEDIUM\\*\\*: ([^\\n]+)(.*?)(?=###|\\*\\*Overall Assessment\\*\\*|$)/gs);
+                let mediumCount = 0;
+                
+                for (const match of mediumIssues) {
+                  if (mediumCount >= 2) break; // Limit to 2 medium issues per entity
+                  
+                  const title = match[1].replace(/^[^-]+-\\s*/, "").trim();
+                  const content = match[2];
+                  
+                  let suggestion = "See analysis for details";
+                  const recommendationMatch = content.match(/\\*\\*Recommendation\\*\\*:(.*?)(?=\\*\\*|```|$)/s);
+                  if (recommendationMatch) {
+                    suggestion = recommendationMatch[1].trim().slice(0, 200);
+                  }
+                  
+                  issues.push({
+                    id: id++,
+                    severity: "MEDIUM",
+                    title: title.slice(0, 80),
+                    file: entityFile,
+                    line: entityLine,
+                    description: title.slice(0, 200),
+                    suggestion: suggestion.replace(/\\n|\\t/g, " ").trim()
+                  });
+                  
+                  mediumCount++;
+                }
               }
             }
             
