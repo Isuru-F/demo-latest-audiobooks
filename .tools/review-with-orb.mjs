@@ -24,12 +24,8 @@ async function reviewEntitiesWithOrb() {
       
 
       const stream = execute({
-        prompt: `NEW: Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
-         options: {
-           visibility: 'private',
-           settingsFile: '/tmp/empty-settings.json'
-         }
-      }, );
+        prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`
+      });
       let analysisResult = '';
       
       for await (const message of stream) {
