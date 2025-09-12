@@ -1,4 +1,4 @@
-name: Minimal Amp PR Bot
+name: Amp PR Bot with Orb SDK
 
 on:
   pull_request:
@@ -43,17 +43,23 @@ jobs:
       - name: Install dependencies
         if: steps.diff.outputs.HAS_DIFF == 'true'
         run: |
-          # Install tree-sitter for the toolbox tools
+          # Install Orb SDK (includes Amp CLI)
+          npm install @sourcegraph/the-orb-is-awake zod
+          
+          # Install tree-sitter dependencies for entity extraction
           npm install tree-sitter@0.20.4 tree-sitter-typescript@0.20.3 tree-sitter-javascript@0.21.2 || true
           
-          # Install Amp CLI
-          npm install -g @sourcegraph/amp@latest
+          # Ensure jq is available (should be pre-installed on ubuntu-latest)
+          which jq || sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Extract entities and review with Amp
+      - name: Extract entities and review with Orb SDK
         if: steps.diff.outputs.HAS_DIFF == 'true'
         env:
           AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
         run: |
+          # Create empty settings file for clean Amp environment
+          echo '{}' > /tmp/empty-settings.json
+          
           # Extract entities using toolbox
           echo "Extracting entities..."
           ENTITIES_JSON=$(echo "diff_content: $(cat pr_diff.txt)" | TOOLBOX_ACTION=execute ./.tools/extract-diff-entities)
@@ -67,132 +73,8 @@ jobs:
             exit 0
           fi
           
-          # Create Amp thread
-          echo "Creating thread for review..."
-          THREAD_ID=$(amp threads new --visibility private)
-          echo "Thread created: $THREAD_ID"
-          
-          # Review first entity
-          FIRST_ENTITY=$(echo "$ENTITIES_JSON" | jq '.entities[0]')
-          ENTITY_NAME=$(echo "$FIRST_ENTITY" | jq -r '.name')
-          ENTITY_FILE=$(echo "$FIRST_ENTITY" | jq -r '.file')
-          ENTITY_LINE=$(echo "$FIRST_ENTITY" | jq -r '.line')
-          ENTITY_KIND=$(echo "$FIRST_ENTITY" | jq -r '.kind')
-          
-          cat << EOF | amp -x --stream-json threads continue $THREAD_ID > review_responses.jsonl
-          Code Review Request: Please analyze this $ENTITY_KIND "$ENTITY_NAME" from $ENTITY_FILE at line $ENTITY_LINE.
-          
-          Focus on security, performance, and code quality issues. Provide structured analysis with:
-          - Issue severity (HIGH/MEDIUM/LOW)
-          - Specific problem description
-          - Actionable recommendation
-          
-          Use the code_reviewer tool if available.
-          EOF
-          
-          # Continue with remaining entities if any
-          if [ "$ENTITY_COUNT" -gt 1 ]; then
-            for i in $(seq 1 $((ENTITY_COUNT - 1))); do
-              ENTITY=$(echo "$ENTITIES_JSON" | jq ".entities[$i]")
-              ENTITY_NAME=$(echo "$ENTITY" | jq -r '.name')
-              ENTITY_FILE=$(echo "$ENTITY" | jq -r '.file')
-              ENTITY_LINE=$(echo "$ENTITY" | jq -r '.line')
-              ENTITY_KIND=$(echo "$ENTITY" | jq -r '.kind')
-              
-              cat << EOF | amp -x --stream-json threads continue $THREAD_ID >> review_responses.jsonl
-          Continue review: Analyze $ENTITY_KIND "$ENTITY_NAME" from $ENTITY_FILE at line $ENTITY_LINE.
-          
-          Same criteria: security, performance, code quality. Provide structured feedback.
-          Use code_reviewer tool if available.
-          EOF
-            done
-          fi
-          
-          # Process responses into GitHub format
-          node -e '
-            const fs = require("fs");
-            const content = fs.readFileSync("review_responses.jsonl", "utf8");
-            const lines = content.split("\n").filter(l => l.trim());
-            
-            let allText = "";
-            for (const line of lines) {
-              try {
-                const parsed = JSON.parse(line);
-                if (parsed.message?.content) {
-                  for (const item of parsed.message.content) {
-                    if (item.type === "text") allText += item.text + "\n";
-                  }
-                }
-              } catch (e) {}
-            }
-            
-            const issues = [];
-            let id = 1;
-            
-            // Split by entity review sections
-            const reviewSections = allText.split(/Continue review:|Code Review Request:/).filter(s => s.trim());
-            
-            for (const section of reviewSections) {
-              // Extract entity info
-              const entityMatch = section.match(/Analyze .*? "([^"]+)" from ([^\\s]+\\.(?:vue|ts|js)) at line (\\d+)/);
-              
-              if (!entityMatch) continue;
-              
-              const entityName = entityMatch[1];
-              const file = entityMatch[2];
-              const line = parseInt(entityMatch[3], 10);
-              
-              // Only process client code files
-              if (!file.includes("client/src/")) continue;
-              
-              console.log(`Processing ${entityName} in ${file}:${line}`);
-              
-              // Extract MEDIUM issues for security/validation/type safety
-              const mediumMatches = section.matchAll(/\\*\\*MEDIUM\\*\\*: ([^\\n]+)/g);
-              
-              for (const match of mediumMatches) {
-                const description = match[1];
-                
-                // Focus on critical MEDIUM issues
-                if (description.includes("localStorage access without error handling") || 
-                    description.includes("Weak typing with ") || 
-                    description.includes("Missing null safety")) {
-                  
-                  issues.push({
-                    id: id++,
-                    severity: "MEDIUM",
-                    title: description.split(" - ")[0].slice(0, 50),
-                    file,
-                    line,
-                    description: description.slice(0, 150),
-                    suggestion: "Add proper error handling and type safety"
-                  });
-                }
-              }
-              
-              // Also check for HIGH issues
-              const highMatches = section.matchAll(/\\*\\*HIGH\\*\\*: ([^\\n]+)/g);
-              for (const match of highMatches) {
-                const description = match[1];
-                
-                issues.push({
-                  id: id++,
-                  severity: "HIGH",
-                  title: description.split(" - ")[0].slice(0, 50),
-                  file,
-                  line,
-                  description: description.slice(0, 150),
-                  suggestion: "Address this high-priority security/performance issue"
-                });
-              }
-            }
-            
-            console.log(JSON.stringify({
-              tool: "amp", version: "0.2",
-              summary: issues.length ? `Found ${issues.length} issues using Amp toolbox analysis.` : "No issues found.",
-              issues
-            }, null, 2));
-          ' > amp_review.json
+          # Use Orb SDK for structured review with clean settings
+          node ./.tools/review-with-orb.mjs
 
       - name: Create GitHub review comments
         if: steps.diff.outputs.HAS_DIFF == 'true'
@@ -327,6 +209,6 @@ jobs:
           path: |
             pr_diff.txt
             entities.json
-            review_responses.jsonl
             amp_review.json
+            /tmp/empty-settings.json
           retention-days: 3
