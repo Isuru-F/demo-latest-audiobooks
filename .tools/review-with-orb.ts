@@ -1,14 +1,49 @@
-#!/usr/bin/env node
+#!/usr/bin/env npx tsx
 
 // Review entities using Orb SDK
 
-import { execute } from '@sourcegraph/the-orb-is-awake';
+import { execute, type AmpOptions } from '@sourcegraph/the-orb-is-awake';
 import fs from 'fs';
 
-async function reviewEntitiesWithOrb() {
+interface Entity {
+  id: string;
+  file: string;
+  line: number;
+  start: number;
+  end: number;
+  kind: string;
+  name: string;
+}
+
+interface Issue {
+  id: number;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  title: string;
+  file: string;
+  line: number;
+  description: string;
+  suggestion: string;
+}
+
+interface ReviewResult {
+  tool: string;
+  version: string;
+  summary: string;
+  issues: Issue[];
+}
+
+interface EntitiesData {
+  entities_found: number;
+  extraction_method: string;
+  note: string;
+  entities: Entity[];
+}
+
+async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
   try {
-    const entities = JSON.parse(fs.readFileSync('entities.json', 'utf8')).entities;
-    const allIssues = [];
+    const entitiesData: EntitiesData = JSON.parse(fs.readFileSync('entities.json', 'utf8'));
+    const entities = entitiesData.entities;
+    const allIssues: Issue[] = [];
     let id = 1;
     
     console.log(`Processing ${entities.length} entities with Orb SDK...`);
@@ -21,16 +56,19 @@ async function reviewEntitiesWithOrb() {
       }
       
       console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line}`);
-      
+       
+      const ampOptions: AmpOptions = {
+        visibility: 'private',
+        dangerouslyAllowAll: true,
 
-      const ampOptions = {
-        visibility: 'public'
+
       };
 
       const stream = execute({
         prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
         options: ampOptions
       });
+      
       let analysisResult = '';
       
       for await (const message of stream) {
@@ -57,7 +95,7 @@ async function reviewEntitiesWithOrb() {
           
           allIssues.push({
             id: id++,
-            severity: match[1],
+            severity: match[1] as 'HIGH' | 'MEDIUM' | 'LOW',
             title: match[2].split(' - ')[0].slice(0, 60),
             file: entity.file,
             line: entity.line,
@@ -68,20 +106,21 @@ async function reviewEntitiesWithOrb() {
       }
     }
     
-    const result = {
+    const result: ReviewResult = {
       tool: 'amp',
       version: '0.2', 
       summary: allIssues.length ? `Found ${allIssues.length} issues using Amp Orb SDK.` : 'No issues found.',
       issues: allIssues
     };
     
+    console.log('📝 Writing review results to amp_review.json...');
     fs.writeFileSync('amp_review.json', JSON.stringify(result, null, 2));
     console.log(`✅ Generated review with ${allIssues.length} issues`);
     
     return result;
     
   } catch (error) {
-    console.error('❌ Review failed:', error.message);
+    console.error('❌ Review failed:', (error as Error).message);
     process.exit(1);
   }
 }
