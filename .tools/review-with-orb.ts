@@ -1,9 +1,7 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 
-// Review entities using Orb SDK
-
-import { execute, type AmpOptions } from '@sourcegraph/the-orb-is-awake';
-import fs from 'fs';
+// Review entities using Orb SDK - Use CommonJS for compatibility
+const fs = require('fs');
 
 interface Entity {
   id: string;
@@ -41,6 +39,9 @@ interface EntitiesData {
 
 async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
   try {
+    // Dynamic import for ESM module
+    const { execute } = await import('@sourcegraph/the-orb-is-awake');
+    
     const entitiesData: EntitiesData = JSON.parse(fs.readFileSync('entities.json', 'utf8'));
     const entities = entitiesData.entities;
     const allIssues: Issue[] = [];
@@ -57,11 +58,9 @@ async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
       
       console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line}`);
        
-      const ampOptions: AmpOptions = {
+      const ampOptions = {
         visibility: 'private',
         dangerouslyAllowAll: true,
-
-
       };
 
       const stream = execute({
