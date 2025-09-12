@@ -33,8 +33,16 @@ async function reviewEntitiesWithOrb() {
       let analysisResult = '';
       
       for await (const message of stream) {
+        console.log(`📨 Message type: ${message.type}`);
         if (message.type === 'result') {
-          analysisResult = message.result;
+          if (message.is_error) {
+            console.error(`❌ Error analyzing ${entity.name}:`, message.error);
+            analysisResult = ''; // No results from error
+          } else {
+            console.log(`✅ Success analyzing ${entity.name}`);
+            analysisResult = message.result;
+          }
+          break; // Exit loop after getting result (success or error)
         }
       }
       
