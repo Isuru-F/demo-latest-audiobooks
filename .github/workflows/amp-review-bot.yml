@@ -52,13 +52,13 @@ jobs:
             tree-sitter-javascript@0.21.2 \
             tree-sitter-typescript@0.21.2
           
-          # Create tsconfig.json for proper Node.js compilation
+          # Create tsconfig.json for ESM compilation
           cat > tsconfig.json << 'EOF'
           {
             "compilerOptions": {
-              "target": "ES2020",
-              "lib": ["ES2020"],
-              "module": "commonjs",
+              "target": "ES2022",
+              "lib": ["ES2022"],
+              "module": "ESNext",
               "moduleResolution": "node",
               "esModuleInterop": true,
               "allowSyntheticDefaultImports": true,
@@ -68,8 +68,22 @@ jobs:
               "types": ["node"]
             },
             "ts-node": {
-              "esm": false,
+              "esm": true,
               "experimentalSpecifierResolution": "node"
+            }
+          }
+          EOF
+          
+          # Create package.json to enable ESM
+          cat > package.json << 'EOF'
+          {
+            "type": "module",
+            "dependencies": {
+              "@sourcegraph/the-orb-is-awake": "*",
+              "zod": "*",
+              "typescript": "*",
+              "ts-node": "*",
+              "@types/node": "*"
             }
           }
           EOF
