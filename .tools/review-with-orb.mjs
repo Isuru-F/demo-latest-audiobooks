@@ -23,8 +23,13 @@ async function reviewEntitiesWithOrb() {
       console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line}`);
       
 
+      const ampOptions = {
+        visibility: 'workspace'
+      };
+
       const stream = execute({
-        prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`
+        prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
+        options: ampOptions
       });
       let analysisResult = '';
       
