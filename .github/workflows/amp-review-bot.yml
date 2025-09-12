@@ -46,8 +46,11 @@ jobs:
           # Install Orb SDK (includes Amp CLI)
           npm install @sourcegraph/the-orb-is-awake zod
           
-          # Install tree-sitter dependencies for entity extraction
-          npm install tree-sitter@0.20.4 tree-sitter-typescript@0.20.3 tree-sitter-javascript@0.21.2 || true
+          # Install tree-sitter dependencies - use compatible versions with legacy peer deps
+          npm install --legacy-peer-deps \
+            tree-sitter@0.21.1 \
+            tree-sitter-javascript@0.21.2 \
+            tree-sitter-typescript@0.21.2
           
           # Ensure jq is available (should be pre-installed on ubuntu-latest)
           which jq || sudo apt-get update && sudo apt-get install -y jq

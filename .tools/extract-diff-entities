@@ -30,41 +30,22 @@ diff_content: string The unified git diff content to analyze`);
           process.exit(1);
         }
         
-        // Try to use tree-sitter-typescript, fall back to regex if not available
-        try {
-          const entities = await extractEntitiesWithTreeSitter(diffContent);
-          
-          // Output as JSON for Amp to consume
-          console.log(JSON.stringify({
-            entities_found: entities.length,
-            extraction_method: 'tree-sitter-typescript',
-            note: 'Using official tree-sitter-typescript from https://github.com/tree-sitter/tree-sitter-typescript',
-            entities: entities.map(entity => ({
-              id: entity.id,
-              file: entity.file, 
-              start: entity.start,
-              end: entity.end,
-              kind: entity.kind,
-              name: entity.name
-            }))
-          }, null, 2));
-          return;
-          
-        } catch (treeSitterError) {
-          console.error(`tree-sitter-typescript not available: ${treeSitterError.message}`);
-          console.error('Note: Install with compatible Node.js version (18 or 20) to use tree-sitter');
-          console.error('Falling back to regex-based extraction...');
-        }
-        
-        // Fallback to regex extraction
-        const entities = extractEntitiesWithRegex(diffContent);
+        // Use tree-sitter extraction - no fallback
+        const entities = await extractEntitiesWithTreeSitter(diffContent);
         
         // Output as JSON for Amp to consume
         console.log(JSON.stringify({
           entities_found: entities.length,
-          extraction_method: 'regex-fallback',
-          note: 'tree-sitter-typescript not available, used regex parsing',
-          entities: entities
+          extraction_method: 'tree-sitter-typescript',
+          note: 'Using official tree-sitter-typescript from https://github.com/tree-sitter/tree-sitter-typescript',
+          entities: entities.map(entity => ({
+            id: entity.id,
+            file: entity.file, 
+            start: entity.start,
+            end: entity.end,
+            kind: entity.kind,
+            name: entity.name
+          }))
         }, null, 2));
         
       } catch (error) {
@@ -136,102 +117,16 @@ async function extractEntitiesWithTreeSitter(diffContent) {
   return entities;
 }
 
-function extractEntitiesWithRegex(diffContent) {
-  // Regex-based fallback extraction
-  const entities = [];
-  const lines = diffContent.split('\n');
-  
-  let currentFile = null;
-  let currentLineNum = 0;
-  let entityId = 1;
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    
-    // Track current file
-    const fileMatch = line.match(/^diff --git a\/(.+) b\/(.+)$/);
-    if (fileMatch) {
-      currentFile = fileMatch[2]; // Use the 'b/' (new) file path
-      continue;
-    }
-    
-    // Track line numbers
-    const hunkMatch = line.match(/^@@ -\d+,?\d* \+(\d+),?\d* @@/);
-    if (hunkMatch) {
-      currentLineNum = parseInt(hunkMatch[1]);
-      continue;
-    }
-    
-    // Skip non-code lines
-    if (!currentFile || !line.startsWith('+') || line.startsWith('+++')) {
-      if (line.startsWith('+') || line.startsWith(' ')) {
-        currentLineNum++;
-      }
-      continue;
-    }
-    
-    const addedLine = line.substring(1); // Remove the '+' prefix
-    currentLineNum++;
-    
-    // Pattern matching for different code constructs
-    
-    // TypeScript/JavaScript functions
-    const functionMatch = addedLine.match(/^(\s*)(?:export\s+)?(?:async\s+)?function\s+(\w+)/);
-    if (functionMatch) {
-      entities.push({
-        id: `${currentFile}:${currentLineNum}:function:${entityId++}`,
-        file: currentFile,
-        line: currentLineNum,
-        kind: 'function',
-        name: functionMatch[2],
-        context: 'typescript'
-      });
-    }
-    
-    // Arrow functions assigned to const/let
-    const arrowFunctionMatch = addedLine.match(/^(\s*)(?:const|let|var)\s+(\w+)\s*=.*=>/);
-    if (arrowFunctionMatch) {
-      entities.push({
-        id: `${currentFile}:${currentLineNum}:arrow-function:${entityId++}`,
-        file: currentFile,
-        line: currentLineNum,
-        kind: 'function',
-        name: arrowFunctionMatch[2],
-        context: 'arrow-function'
-      });
-    }
-    
-    // TypeScript interfaces
-    const interfaceMatch = addedLine.match(/^(\s*)(?:export\s+)?interface\s+(\w+)/);
-    if (interfaceMatch) {
-      entities.push({
-        id: `${currentFile}:${currentLineNum}:interface:${entityId++}`,
-        file: currentFile,
-        line: currentLineNum,
-        kind: 'interface',
-        name: interfaceMatch[2],
-        context: 'typescript'
-      });
-    }
-    
-    // Classes
-    const classMatch = addedLine.match(/^(\s*)(?:export\s+)?class\s+(\w+)/);
-    if (classMatch) {
-      entities.push({
-        id: `${currentFile}:${currentLineNum}:class:${entityId++}`,
-        file: currentFile,
-        line: currentLineNum,
-        kind: 'class',
-        name: classMatch[2],
-        context: 'class'
-      });
-    }
-  }
-  
-  return entities;
+
+
+
+
+function shouldSkipFile(file) {
+  return file.includes('/.tools/') ||
+         file.includes('/__tests__/') ||
+         /(?:^|\/).*\.tools\./.test(file) ||
+         /\.(test|spec)\.[jt]sx?$/.test(file);
 }
-
-
 
 function parseUnifiedDiff(diffContent) {
   const hunks = [];
@@ -251,6 +146,14 @@ function parseUnifiedDiff(diffContent) {
       }
       
       currentFile = fileMatch[2]; // Use the 'b/' (new) file path
+      
+      // Skip tool files and test files
+      if (shouldSkipFile(currentFile)) {
+        currentFile = null;
+        addedLines = new Set();
+        continue;
+      }
+      
       addedLines = new Set();
       continue;
     }
