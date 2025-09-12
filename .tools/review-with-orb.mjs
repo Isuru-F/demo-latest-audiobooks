@@ -24,7 +24,7 @@ async function reviewEntitiesWithOrb() {
       
 
       const ampOptions = {
-        visibility: 'team'
+      
       };
 
       const stream = execute({
