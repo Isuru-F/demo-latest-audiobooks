@@ -22,14 +22,14 @@ async function reviewEntitiesWithOrb() {
       
       console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line}`);
       
-      const ampOptions = {
-        visibility: 'private'
-      };
 
       const stream = execute({
-        prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
-        options: ampOptions
-      });
+        prompt: `NEW: Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
+         options: {
+           visibility: 'private',
+           settingsFile: '/tmp/empty-settings.json'
+         }
+      }, );
       let analysisResult = '';
       
       for await (const message of stream) {
