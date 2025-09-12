@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
-// Review entities using Orb SDK - Use CommonJS for compatibility
-const fs = require('fs');
+// Review entities using Orb SDK
+import fs from 'fs';
 
 interface Entity {
   id: string;
@@ -11,6 +11,7 @@ interface Entity {
   end: number;
   kind: string;
   name: string;
+  content?: string;
 }
 
 interface Issue {
@@ -39,7 +40,7 @@ interface EntitiesData {
 
 async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
   try {
-    // Dynamic import for ESM module
+    // Import Orb SDK
     const { execute } = await import('@sourcegraph/the-orb-is-awake');
     
     const entitiesData: EntitiesData = JSON.parse(fs.readFileSync('entities.json', 'utf8'));
@@ -47,40 +48,90 @@ async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
     const allIssues: Issue[] = [];
     let id = 1;
     
-    console.log(`Processing ${entities.length} entities with Orb SDK...`);
+    // Filter client entities first
+    const clientEntities = entities.filter(entity => entity.file.includes('client/src/'));
+    console.log(`Processing ${entities.length} total entities, ${clientEntities.length} client entities with Orb SDK...`);
     
-    for (const entity of entities) {
-      // Skip non-client files
-      if (!entity.file.includes('client/src/')) {
-        console.log(`Skipping non-client file: ${entity.file}`);
-        continue;
-      }
+    if (clientEntities.length === 0) {
+      console.log('No client entities to review');
+      return {
+        tool: 'amp',
+        version: '0.2',
+        summary: 'No client entities found to review',
+        issues: []
+      };
+    }
+
+    let threadId: string | undefined;
+    
+    for (let i = 0; i < clientEntities.length; i++) {
+      const entity = clientEntities[i];
+      const isFirst = i === 0;
       
-      console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line}`);
-       
-      const ampOptions = {
+      console.log(`Reviewing ${entity.name} in ${entity.file}:${entity.line} ${isFirst ? '(starting new thread)' : '(continuing thread)'}`);
+      
+      const ampOptions: any = {
         visibility: 'private',
         dangerouslyAllowAll: true,
       };
+      
+      // Add continue option for thread continuation (except for first message)
+      if (!isFirst && threadId) {
+        ampOptions.continue = threadId;
+        console.log(`🔄 Using existing thread ID for continuation: ${threadId}`);
+      } else if (!isFirst && !threadId) {
+        console.log(`⚠️  Warning: No thread ID available for continuation!`);
+      }
+
+      const prompt = isFirst 
+        ? `I'm going to send you ${clientEntities.length} code entities from a client application to review for security and performance issues. As a Senior engineer, please analyze each one and report issues in this format: **HIGH/MEDIUM/LOW**: description
+
+Consider: missing/weak tests, security, performance, code quality, architecture, best practices, include a suggestion on how to fix it and what the impact of not fixing it could be.
+
+First entity - ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}:
+${entity.content ? entity.content.slice(0, 1000) : 'No content available'}`
+        : `Next entity - ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}:
+${entity.content ? entity.content.slice(0, 1000) : 'No content available'}`;
 
       const stream = execute({
-        prompt: `Review this ${entity.kind} "${entity.name}" from ${entity.file}:${entity.line}. Find security/performance issues. Format: **HIGH/MEDIUM/LOW**: description`,
+        prompt,
         options: ampOptions
       });
       
       let analysisResult = '';
       
       for await (const message of stream) {
-        console.log(`📨 Message type: ${message.type}`);
+        console.log(`📨 Message type: ${message.type}`, message.type === 'result' ? `(error: ${message.is_error})` : '');
+        
+        // Remove debug logging in production version
+        
+        // Capture session_id as threadId from any message that has it
+        if (isFirst && (message as any).session_id && !threadId) {
+          threadId = (message as any).session_id;
+          console.log(`🧵 Thread ID captured from session_id: ${threadId}`);
+        }
+        
+        // Also try threadId field as backup
+        if (isFirst && !threadId && (message as any).threadId) {
+          threadId = (message as any).threadId;
+          console.log(`🧵 Thread ID captured from threadId field: ${threadId}`);
+        }
+        
         if (message.type === 'result') {
           if (message.is_error) {
             console.error(`❌ Error analyzing ${entity.name}:`, message.error);
-            analysisResult = ''; // No results from error
+            analysisResult = '';
           } else {
             console.log(`✅ Success analyzing ${entity.name}`);
             analysisResult = message.result;
+            
+            // Last attempt to capture threadId from successful result
+            if (isFirst && !threadId && (message as any).threadId) {
+              threadId = (message as any).threadId;
+              console.log(`🧵 Thread ID captured from result: ${threadId}`);
+            }
           }
-          break; // Exit loop after getting result (success or error)
+          break;
         }
       }
       
@@ -102,6 +153,11 @@ async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
             suggestion: 'See analysis for specific recommendations'
           });
         }
+      }
+      
+      // Small delay between requests to avoid rate limiting
+      if (i < clientEntities.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
