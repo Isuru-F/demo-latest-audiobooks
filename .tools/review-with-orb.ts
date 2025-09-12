@@ -122,6 +122,7 @@ async function reviewEntitiesWithOrb(): Promise<ReviewResult> {
   } catch (error) {
     console.error('❌ Review failed:', (error as Error).message);
     process.exit(1);
+    return { tool: 'amp', version: '0.2', summary: 'Error occurred', issues: [] }; // This won't be reached but satisfies TypeScript
   }
 }
 
