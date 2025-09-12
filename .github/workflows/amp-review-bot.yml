@@ -52,30 +52,7 @@ jobs:
             tree-sitter-javascript@0.21.2 \
             tree-sitter-typescript@0.21.2
           
-          # Create tsconfig.json for ESM compilation
-          cat > tsconfig.json << 'EOF'
-          {
-            "compilerOptions": {
-              "target": "ES2022",
-              "lib": ["ES2022"],
-              "module": "ESNext",
-              "moduleResolution": "node",
-              "esModuleInterop": true,
-              "allowSyntheticDefaultImports": true,
-              "strict": true,
-              "skipLibCheck": true,
-              "forceConsistentCasingInFileNames": true,
-              "types": ["node"]
-            },
-            "ts-node": {
-              "esm": true,
-              "experimentalSpecifierResolution": "node"
-            }
-          }
-          EOF
-          
-          # Don't create a global package.json to avoid breaking extract-diff-entities
-          # The existing extraction script uses CommonJS which should work fine
+          # tsx handles TypeScript compilation automatically, no config needed
           
           # Ensure jq is available (should be pre-installed on ubuntu-latest)
           which jq || sudo apt-get update && sudo apt-get install -y jq
