@@ -24,9 +24,7 @@ async function reviewEntitiesWithOrb() {
       
 
       const ampOptions = {
-        dangerouslyAllowAll: true,
-        visibility: 'private', 
-        logLevel: 'info',
+        visibility: 'public'
       };
 
       const stream = execute({
