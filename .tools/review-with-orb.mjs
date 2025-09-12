@@ -24,7 +24,7 @@ async function reviewEntitiesWithOrb() {
       
 
       const ampOptions = {
-        visibility: 'workspace'
+        visibility: 'team'
       };
 
       const stream = execute({
