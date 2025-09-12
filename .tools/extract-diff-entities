@@ -41,6 +41,7 @@ diff_content: string The unified git diff content to analyze`);
           entities: entities.map(entity => ({
             id: entity.id,
             file: entity.file, 
+            line: entity.line || entity.start,
             start: entity.start,
             end: entity.end,
             kind: entity.kind,
@@ -85,6 +86,7 @@ async function extractEntitiesWithTreeSitter(diffContent) {
     const ext = path.extname(fileName);
     if (['.ts', '.tsx'].includes(ext)) return tsParser;
     if (['.js', '.jsx'].includes(ext)) return jsParser;
+    if (['.vue', '.mjs'].includes(ext)) return jsParser; // Vue SFC and modules use JS parser
     return null;
   };
 
@@ -122,10 +124,12 @@ async function extractEntitiesWithTreeSitter(diffContent) {
 
 
 function shouldSkipFile(file) {
-  return file.includes('/.tools/') ||
-         file.includes('/__tests__/') ||
+  return file.includes('.tools/') ||
+         file.includes('__tests__/') ||
+         file.includes('.github/') ||
          /(?:^|\/).*\.tools\./.test(file) ||
-         /\.(test|spec)\.[jt]sx?$/.test(file);
+         /\.(test|spec)\.[jt]sx?$/.test(file) ||
+         /\.(yml|yaml|md|txt|json)$/.test(file);
 }
 
 function parseUnifiedDiff(diffContent) {
@@ -226,6 +230,7 @@ function extractEntitiesFromTreeSitterAST(tree, filePath, addedLines, sourceCode
         const entity = {
           id: `${filePath}:${startLine}-${endLine}:${entityId++}`,
           file: filePath,
+          line: startLine,
           start: startLine,
           end: endLine,
           kind: mapNodeTypeToKind(node.type),
