@@ -44,7 +44,7 @@ jobs:
         if: steps.diff.outputs.HAS_DIFF == 'true'
         run: |
           # Install Orb SDK (includes Amp CLI) and TypeScript dependencies
-          npm install @sourcegraph/the-orb-is-awake zod typescript ts-node @types/node
+          npm install @sourcegraph/the-orb-is-awake zod typescript tsx @types/node
           
           # Install tree-sitter dependencies - use compatible versions with legacy peer deps
           npm install --legacy-peer-deps \
@@ -102,7 +102,7 @@ jobs:
           fi
           
           # Use Orb SDK for structured review with clean settings
-          npx ts-node ./.tools/review-with-orb.ts
+          npx tsx ./.tools/review-with-orb.ts
 
       - name: Create GitHub review comments
         if: steps.diff.outputs.HAS_DIFF == 'true'
