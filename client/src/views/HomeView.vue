@@ -1,31 +1,61 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
+import { useSorting } from '@/composables/useSorting';
 import AlbumCard from '@/components/AlbumCard.vue';
 import FeaturedCarousel from '@/components/FeaturedCarousel.vue';
+import SortButton from '@/components/SortButton.vue';
+import type { Album } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
+const { sortBy } = useSorting<Album>();
 const searchQuery = ref('');
+const currentSort = ref('');
+
+const sortOptions = [
+  { label: 'Name (A-Z)', value: 'name-asc' },
+  { label: 'Name (Z-A)', value: 'name-desc' },
+  { label: 'Release Date (Newest)', value: 'date-desc' },
+  { label: 'Release Date (Oldest)', value: 'date-asc' },
+  { label: 'Artist (A-Z)', value: 'artist-asc' },
+  { label: 'Artist (Z-A)', value: 'artist-desc' }
+];
 
 const filteredReleases = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.newReleases;
+  let results = spotifyStore.newReleases;
+
+  // Apply search filter
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(album => {
+      // Search by album name
+      if (album.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search by artist name
+      const artistMatch = album.artists.some(artist => 
+        artist.name.toLowerCase().includes(query)
+      );
+      
+      return artistMatch;
+    });
   }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.newReleases.filter(album => {
-    // Search by album name
-    if (album.name.toLowerCase().includes(query)) {
-      return true;
+
+  // Apply sorting
+  if (currentSort.value) {
+    const [field, direction] = currentSort.value.split('-') as [string, 'asc' | 'desc'];
+    
+    if (field === 'name') {
+      results = sortBy(results, 'name', direction, 'string');
+    } else if (field === 'date') {
+      results = sortBy(results, 'release_date', direction, 'date');
+    } else if (field === 'artist') {
+      results = sortBy(results, 'artists.0.name', direction, 'string');
     }
-    
-    // Search by artist name
-    const artistMatch = album.artists.some(artist => 
-      artist.name.toLowerCase().includes(query)
-    );
-    
-    return artistMatch;
-  });
+  }
+
+  return results;
 });
 
 const featuredAlbums = computed(() => {
@@ -56,12 +86,19 @@ onMounted(() => {
     <section class="releases">
       <div class="releases-header">
         <h2>Latest Releases</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search albums or artists..." 
-            class="search-input"
+        <div class="controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search albums or artists..." 
+              class="search-input"
+            />
+          </div>
+          <SortButton 
+            v-model="currentSort" 
+            :options="sortOptions"
+            placeholder="Sort by..."
           />
         </div>
       </div>
@@ -155,6 +192,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -176,6 +220,16 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .controls {
+    width: 100%;
+  }
+  
+  .search-container {
+    width: 100%;
+  }
 }
 
 .album-grid {

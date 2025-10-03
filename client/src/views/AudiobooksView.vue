@@ -1,40 +1,70 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
+import { useSorting } from '@/composables/useSorting';
 import AudiobookCard from '@/components/AudiobookCard.vue';
+import SortButton from '@/components/SortButton.vue';
+import type { Audiobook } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
+const { sortBy } = useSorting<Audiobook>();
 const searchQuery = ref('');
+const currentSort = ref('');
+
+const sortOptions = [
+  { label: 'Title (A-Z)', value: 'name-asc' },
+  { label: 'Title (Z-A)', value: 'name-desc' },
+  { label: 'Release Date (Newest)', value: 'date-desc' },
+  { label: 'Release Date (Oldest)', value: 'date-asc' },
+  { label: 'Author (A-Z)', value: 'author-asc' },
+  { label: 'Author (Z-A)', value: 'author-desc' }
+];
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
-  }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  let results = spotifyStore.audiobooks;
+
+  // Apply search filter
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
+  }
+
+  // Apply sorting
+  if (currentSort.value) {
+    const [field, direction] = currentSort.value.split('-') as [string, 'asc' | 'desc'];
     
-    return authorMatch || narratorMatch;
-  });
+    if (field === 'name') {
+      results = sortBy(results, 'name', direction, 'string');
+    } else if (field === 'date') {
+      results = sortBy(results, 'release_date', direction, 'date');
+    } else if (field === 'author') {
+      results = sortBy(results, 'authors.0.name', direction, 'string');
+    }
+  }
+
+  return results;
 });
 
 onMounted(() => {
@@ -48,12 +78,19 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
+        <div class="controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <SortButton 
+            v-model="currentSort" 
+            :options="sortOptions"
+            placeholder="Sort by..."
           />
         </div>
       </div>
@@ -143,6 +180,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +208,16 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .controls {
+    width: 100%;
+  }
+  
+  .search-container {
+    width: 100%;
+  }
 }
 
 .audiobook-grid {
