@@ -47,11 +47,11 @@ const formatDuration = (ms: number) => {
   if (isNaN(ms) || ms === undefined) {
     return '';
   }
-  
+
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  
+
   if (hours > 0) {
     return `${hours}h ${remainingMinutes}m`;
   }
@@ -63,7 +63,7 @@ const formatNarrators = (narrators: any[]) => {
   if (!Array.isArray(narrators)) {
     return String(narrators) === '[object Object]' ? 'Various' : String(narrators);
   }
-  
+
   return narrators.map(narrator => {
     if (typeof narrator === 'string') {
       return narrator;
@@ -78,7 +78,7 @@ const formatNarrators = (narrators: any[]) => {
 
 <template>
   <div class="audiobook-card">
-    <div class="audiobook-image" @click.stop="toggleModal">
+    <div class="audiobook-image" @click="toggleModal">
       <img v-if="audiobook.images && audiobook.images.length" :src="audiobook.images[0].url" :alt="audiobook.name" />
       <div v-else class="no-image">No Image</div>
     </div>
@@ -88,7 +88,7 @@ const formatNarrators = (narrators: any[]) => {
         {{ audiobook.authors.map(author => author.name).join(', ') }}
       </p>
       <p class="audiobook-narrator" v-if="audiobook.narrators && audiobook.narrators.length">
-          <span class="label">Narrator:</span> {{ formatNarrators(audiobook.narrators) }}
+        <span class="label">Narrator:</span> {{ formatNarrators(audiobook.narrators) }}
       </p>
       <p class="audiobook-details">
         <span>{{ formatDuration(audiobook.duration_ms) }}</span>
@@ -99,35 +99,35 @@ const formatNarrators = (narrators: any[]) => {
         <a :href="audiobook.external_urls.spotify" target="_blank" class="audiobook-link">Open in Spotify</a>
       </div>
     </div>
-    
+
     <!-- Modal/Popover for Audiobook Description -->
-    <teleport to="body">  <!-- Teleport the modal to body to avoid nesting issues -->
+    <teleport to="body">
       <transition name="modal">
         <div v-if="showModal" class="modal-overlay" @click="closeModal">
           <div class="modal-content" @click.stop>
             <button class="close-btn" @click="closeModal">×</button>
-          <div class="modal-header">
-            <div class="modal-image">
-              <img v-if="audiobook.images && audiobook.images.length" :src="audiobook.images[0].url" :alt="audiobook.name" />
+            <div class="modal-header">
+              <div class="modal-image">
+                <img v-if="audiobook.images && audiobook.images.length" :src="audiobook.images[0].url" :alt="audiobook.name" />
+              </div>
+              <div class="modal-title">
+                <h2>{{ audiobook.name }}</h2>
+                <p class="modal-authors">By {{ audiobook.authors.map(author => author.name).join(', ') }}</p>
+                <p class="modal-publisher">Publisher: {{ audiobook.publisher }}</p>
+                <p class="modal-details">
+                  <span>{{ formatDuration(audiobook.duration_ms) }}</span>
+                </p>
+              </div>
             </div>
-            <div class="modal-title">
-              <h2>{{ audiobook.name }}</h2>
-              <p class="modal-authors">By {{ audiobook.authors.map(author => author.name).join(', ') }}</p>
-              <p class="modal-publisher">Publisher: {{ audiobook.publisher }}</p>
-              <p class="modal-details">
-                <span>{{ formatDuration(audiobook.duration_ms) }}</span>
-              </p>
+            <div class="modal-body">
+              <h3>Description</h3>
+              <div class="description" v-html="audiobook.description"></div>
             </div>
-          </div>
-          <div class="modal-body">
-            <h3>Description</h3>
-            <div class="description" v-html="audiobook.description"></div>
-          </div>
-          <div class="modal-footer">
-            <a :href="audiobook.external_urls.spotify" target="_blank" class="spotify-link">Listen on Spotify</a>
+            <div class="modal-footer">
+              <a :href="audiobook.external_urls.spotify" target="_blank" class="spotify-link">Listen on Spotify</a>
+            </div>
           </div>
         </div>
-      </div>
       </transition>
     </teleport>
   </div>
@@ -444,12 +444,12 @@ const formatNarrators = (narrators: any[]) => {
     align-items: center;
     text-align: center;
   }
-  
+
   .modal-image {
     width: 130px;
     height: 130px;
   }
-  
+
   .audiobook-actions {
     flex-direction: column;
   }

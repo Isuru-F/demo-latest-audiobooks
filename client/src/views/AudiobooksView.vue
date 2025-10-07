@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(localStorage.getItem('multiCastOnly') === 'true');
+
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
 
 const filteredAudiobooks = computed(() => {
+  let results = spotifyStore.audiobooks;
+
+  if (multiCastOnly.value) {
+    results = results.filter(isMultiCast);
+  }
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return results;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return results.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -37,6 +48,10 @@ const filteredAudiobooks = computed(() => {
   });
 });
 
+watch(multiCastOnly, (newValue) => {
+  localStorage.setItem('multiCastOnly', String(newValue));
+});
+
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
 });
@@ -48,13 +63,24 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <label class="toggle-container" :class="{ active: multiCastOnly }">
+            <input 
+              type="checkbox" 
+              v-model="multiCastOnly" 
+              class="toggle-input"
+            />
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Multi-Cast Only</span>
+          </label>
         </div>
       </div>
       
@@ -67,7 +93,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -143,6 +171,12 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +198,70 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  padding: 8px 16px;
+  border-radius: 30px;
+  background: #f0f2fa;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.toggle-container.active {
+  background: linear-gradient(90deg, rgba(233, 66, 255, 0.1), rgba(138, 66, 255, 0.1));
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.15);
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2a2d3e;
+  white-space: nowrap;
+}
+
+.toggle-container.active .toggle-label {
+  color: #8a42ff;
+  font-weight: 600;
 }
 
 .audiobook-grid {
