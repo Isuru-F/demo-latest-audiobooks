@@ -6,13 +6,32 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
+const multiCastOnly = ref(
+  localStorage.getItem('multiCastOnly') === 'true'
+);
+
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
+
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+  localStorage.setItem('multiCastOnly', String(multiCastOnly.value));
+};
+
 const filteredAudiobooks = computed(() => {
+  let results = spotifyStore.audiobooks;
+
+  if (multiCastOnly.value) {
+    results = results.filter(isMultiCast);
+  }
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return results;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return results.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -48,13 +67,26 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <button 
+            @click="toggleMultiCast"
+            :class="['multi-cast-toggle', { active: multiCastOnly }]"
+            :aria-pressed="multiCastOnly"
+            aria-label="Filter multi-cast audiobooks only"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 10C12.21 10 14 8.21 14 6C14 3.79 12.21 2 10 2C7.79 2 6 3.79 6 6C6 8.21 7.79 10 10 10ZM10 12C7.33 12 2 13.34 2 16V18H10V16C10 14.67 9.67 13.47 9.09 12.45C9.39 12.17 9.68 11.89 10 11.63C11.14 12.5 13 13 15 13C17.67 13 20 14.34 20 17V18H12V16C12 14 11.33 12.33 10 11ZM15 10C17.21 10 19 8.21 19 6C19 3.79 17.21 2 15 2C14.53 2 14.09 2.1 13.67 2.24C14.5 3.27 15 4.58 15 6C15 7.42 14.5 8.73 13.67 9.76C14.09 9.9 14.53 10 15 10Z" fill="currentColor"/>
+            </svg>
+            Multi-Cast Only
+          </button>
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
         </div>
       </div>
       
@@ -67,7 +99,13 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly && searchQuery.trim() 
+            ? 'No multi-cast audiobooks match your search.' 
+            : multiCastOnly 
+            ? 'No multi-cast audiobooks found.' 
+            : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -141,6 +179,47 @@ onMounted(() => {
   height: 4px;
   background: linear-gradient(90deg, #e942ff, #8a42ff);
   border-radius: 2px;
+}
+
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid #e0e2ed;
+  border-radius: 30px;
+  background: #ffffff;
+  color: #6b6d7d;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.multi-cast-toggle:hover {
+  border-color: #8a42ff;
+  color: #8a42ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(138, 66, 255, 0.15);
+}
+
+.multi-cast-toggle.active {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  border-color: #8a42ff;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.3);
+}
+
+.multi-cast-toggle svg {
+  flex-shrink: 0;
 }
 
 .search-container {
