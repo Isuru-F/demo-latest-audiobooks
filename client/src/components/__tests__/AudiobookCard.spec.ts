@@ -60,4 +60,60 @@ describe('AudiobookCard', () => {
     // The component should now handle object narrators without showing [object Object]
     expect(wrapper.text()).not.toContain('[object Object]')
   })
+
+  it('shows hide button on hover', async () => {
+    const audiobook = {
+      id: '123',
+      name: 'Test Audiobook',
+      authors: [{ name: 'Test Author' }],
+      narrators: ['Narrator 1'],
+      description: 'Test description',
+      publisher: 'Test Publisher',
+      images: [{ url: 'test.jpg', height: 300, width: 300 }],
+      external_urls: { spotify: 'https://spotify.com' },
+      release_date: '2023-01-01',
+      media_type: 'audio',
+      type: 'audiobook',
+      uri: 'spotify:audiobook:123',
+      total_chapters: 10,
+      duration_ms: 3600000
+    }
+
+    const wrapper = mount(AudiobookCard, {
+      props: { audiobook }
+    })
+
+    const hideBtn = wrapper.find('.hide-btn')
+    expect(hideBtn.exists()).toBe(true)
+    expect(hideBtn.attributes('aria-label')).toBe('Hide audiobook')
+  })
+
+  it('emits hide event when hide button is clicked', async () => {
+    const audiobook = {
+      id: '123',
+      name: 'Test Audiobook',
+      authors: [{ name: 'Test Author' }],
+      narrators: ['Narrator 1'],
+      description: 'Test description',
+      publisher: 'Test Publisher',
+      images: [{ url: 'test.jpg', height: 300, width: 300 }],
+      external_urls: { spotify: 'https://spotify.com' },
+      release_date: '2023-01-01',
+      media_type: 'audio',
+      type: 'audiobook',
+      uri: 'spotify:audiobook:123',
+      total_chapters: 10,
+      duration_ms: 3600000
+    }
+
+    const wrapper = mount(AudiobookCard, {
+      props: { audiobook }
+    })
+
+    const hideBtn = wrapper.find('.hide-btn')
+    await hideBtn.trigger('click')
+
+    expect(wrapper.emitted()).toHaveProperty('hide')
+    expect(wrapper.emitted('hide')).toHaveLength(1)
+  })
 })
