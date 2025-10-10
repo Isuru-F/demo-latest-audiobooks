@@ -22,6 +22,7 @@ The project consists of two main parts:
 - Modern UI with custom styling
 - Pinia for state management
 - Unit tests with Vitest
+- Sentry error tracking and performance monitoring
 
 ## Features
 
@@ -72,12 +73,18 @@ The project consists of two main parts:
    npm install
    ```
 
-3. Start the development server:
+3. Configure Sentry (optional):
+   ```
+   cp .env.example .env
+   # Edit .env with your Sentry credentials
+   ```
+
+4. Start the development server:
    ```
    npm run dev
    ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+5. Open your browser and navigate to `http://localhost:5173`
 
 ## Testing
 
@@ -117,6 +124,7 @@ npm run test:unit        # Run unit tests
 - Vue Router
 - Axios
 - Vitest
+- Sentry (Error tracking & Performance monitoring)
 
 ## License
 
