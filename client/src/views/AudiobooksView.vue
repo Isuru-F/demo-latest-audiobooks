@@ -6,24 +6,40 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
+const multiCastOnly = ref<boolean>(
+  localStorage.getItem('multiCastOnly') === 'true'
+);
+
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+  localStorage.setItem('multiCastOnly', String(multiCastOnly.value));
+};
+
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
+
 const filteredAudiobooks = computed(() => {
+  let results = spotifyStore.audiobooks;
+
+  if (multiCastOnly.value) {
+    results = results.filter(audiobook => isMultiCast(audiobook));
+  }
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return results;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
+  return results.filter(audiobook => {
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
     }
     
-    // Search by author name
     const authorMatch = audiobook.authors.some(author => 
       author.name.toLowerCase().includes(query)
     );
     
-    // Search by narrator
     const narratorMatch = audiobook.narrators?.some(narrator => {
       if (typeof narrator === 'string') {
         return narrator.toLowerCase().includes(query);
@@ -48,13 +64,24 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <button 
+            @click="toggleMultiCast" 
+            :class="['multi-cast-toggle', { active: multiCastOnly }]"
+            :aria-pressed="multiCastOnly"
+            aria-label="Toggle multi-cast narrators filter"
+          >
+            <span class="toggle-icon">🎭</span>
+            <span class="toggle-text">Multi-Cast Only</span>
+          </button>
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
         </div>
       </div>
       
@@ -67,7 +94,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -141,6 +170,50 @@ onMounted(() => {
   height: 4px;
   background: linear-gradient(90deg, #e942ff, #8a42ff);
   border-radius: 2px;
+}
+
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.multi-cast-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 2px solid #e0e2f0;
+  border-radius: 30px;
+  background: #ffffff;
+  color: #2a2d3e;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.multi-cast-toggle:hover {
+  border-color: #8a42ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(138, 66, 255, 0.15);
+}
+
+.multi-cast-toggle.active {
+  background: linear-gradient(135deg, #8a42ff, #e942ff);
+  border-color: #8a42ff;
+  color: white;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.3);
+}
+
+.toggle-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toggle-text {
+  white-space: nowrap;
 }
 
 .search-container {
