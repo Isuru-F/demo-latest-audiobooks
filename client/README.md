@@ -20,6 +20,21 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+### Sentry Configuration
+
+1. Copy `.env.example` to `.env`:
+   ```sh
+   cp .env.example .env
+   ```
+
+2. Update `.env` with your Sentry credentials:
+   - `VITE_SENTRY_DSN`: Your Sentry DSN from project settings
+   - `VITE_SENTRY_ORG`: Your Sentry organization slug
+   - `VITE_SENTRY_PROJECT`: Your Sentry project name
+   - `VITE_SENTRY_AUTH_TOKEN`: Your Sentry auth token (for production builds)
+
+For development without Sentry, you can leave these values empty or unset.
+
 ### Compile and Hot-Reload for Development
 
 ```sh
