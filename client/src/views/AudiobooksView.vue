@@ -5,36 +5,53 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortOption = ref('');
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
-  }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  let results = spotifyStore.audiobooks;
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(audiobook => {
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
       }
-      return false;
+      
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
     });
-    
-    return authorMatch || narratorMatch;
-  });
+  }
+
+  if (sortOption.value) {
+    results = [...results].sort((a, b) => {
+      switch (sortOption.value) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'date-asc':
+          return new Date(a.release_date).getTime() - new Date(b.release_date).getTime();
+        case 'date-desc':
+          return new Date(b.release_date).getTime() - new Date(a.release_date).getTime();
+        default:
+          return 0;
+      }
+    });
+  }
+
+  return results;
 });
 
 onMounted(() => {
@@ -48,7 +65,14 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
+        <div class="controls-container">
+          <select v-model="sortOption" class="sort-select">
+            <option value="">Sort by...</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="date-asc">Release Date (Oldest First)</option>
+            <option value="date-desc">Release Date (Newest First)</option>
+          </select>
           <input 
             type="text" 
             v-model="searchQuery" 
@@ -143,13 +167,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-.search-container {
-  position: relative;
-  width: 300px;
+.controls-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
-.search-input {
-  width: 100%;
+.sort-select {
   padding: 12px 20px;
   border: none;
   border-radius: 30px;
@@ -158,6 +182,26 @@ onMounted(() => {
   font-size: 16px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.sort-select:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
+}
+
+.search-input {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  min-width: 300px;
 }
 
 .search-input:focus {
