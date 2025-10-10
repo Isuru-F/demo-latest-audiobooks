@@ -42,20 +42,20 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
 });
 
-const formatDuration = (ms: number) => {
-  // If ms is not a valid number, return an empty string
-  if (isNaN(ms) || ms === undefined) {
-    return '';
-  }
-  
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  
-  if (hours > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-  return `${minutes}m`;
+const formatDuration = (ms?: number) => {
+// If ms is not a valid number, return an empty string
+if (ms === undefined || isNaN(ms)) {
+return '';
+}
+
+const minutes = Math.floor(ms / 60000);
+const hours = Math.floor(minutes / 60);
+const remainingMinutes = minutes % 60;
+
+if (hours > 0) {
+return `${hours}h ${remainingMinutes}m`;
+}
+return `${minutes}m`;
 };
 
 // Format narrators to handle both string arrays and object arrays
