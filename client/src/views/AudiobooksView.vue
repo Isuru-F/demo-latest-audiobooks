@@ -1,45 +1,51 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useSpotifyStore } from '@/stores/spotify';
-import AudiobookCard from '@/components/AudiobookCard.vue';
+import { onMounted, ref, computed } from 'vue'
+import { useSpotifyStore } from '@/stores/spotify'
+import AudiobookCard from '@/components/AudiobookCard.vue'
 
-const spotifyStore = useSpotifyStore();
-const searchQuery = ref('');
+const spotifyStore = useSpotifyStore()
+const searchQuery = ref('')
+const hiddenAudiobookIds = ref<Set<string>>(new Set())
+
+const hideAudiobook = (audiobookId: string) => {
+  hiddenAudiobookIds.value.add(audiobookId)
+}
 
 const filteredAudiobooks = computed(() => {
+  let books = spotifyStore.audiobooks.filter(
+    (audiobook) => !hiddenAudiobookIds.value.has(audiobook.id),
+  )
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return books
   }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
+
+  const query = searchQuery.value.toLowerCase().trim()
+  return books.filter((audiobook) => {
     if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
+      return true
     }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
+
+    const authorMatch = audiobook.authors.some((author) =>
+      author.name.toLowerCase().includes(query),
+    )
+
+    const narratorMatch = audiobook.narrators?.some((narrator) => {
       if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
+        return narrator.toLowerCase().includes(query)
       } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        return narrator.name ? narrator.name.toLowerCase().includes(query) : false
       }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+      return false
+    })
+
+    return authorMatch || narratorMatch
+  })
+})
 
 onMounted(() => {
-  spotifyStore.fetchAudiobooks();
-});
+  spotifyStore.fetchAudiobooks()
+})
 </script>
 
 <template>
@@ -67,12 +73,15 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          No audiobooks match your search.
+        </p>
         <div v-else class="audiobook-grid">
-          <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
-            :key="audiobook.id" 
-            :audiobook="audiobook" 
+          <AudiobookCard
+            v-for="audiobook in filteredAudiobooks"
+            :key="audiobook.id"
+            :audiobook="audiobook"
+            @hide="hideAudiobook"
           />
         </div>
       </div>
