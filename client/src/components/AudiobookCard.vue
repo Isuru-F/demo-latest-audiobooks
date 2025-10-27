@@ -19,11 +19,13 @@ const openModal = (event: Event) => {
 // Use a separate function to close the modal
 const closeModal = () => {
   showModal.value = false;
+  document.body.style.overflow = '';
 };
 
 // Replace the toggle function with the open function
 const toggleModal = (event: Event) => {
   openModal(event);
+  document.body.style.overflow = 'hidden';
 };
 
 // Handle escape key to close modal
@@ -40,6 +42,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown);
+  document.body.style.overflow = '';
 });
 
 const formatDuration = (ms: number) => {
