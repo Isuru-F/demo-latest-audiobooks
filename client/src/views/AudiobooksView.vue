@@ -5,36 +5,57 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortOrder = ref('');
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let results = spotifyStore.audiobooks;
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(audiobook => {
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
+    });
   }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
+
+  if (sortOrder.value) {
+    const sorted = [...results];
+    
+    switch (sortOrder.value) {
+      case 'name-asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'date-desc':
+        sorted.sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime());
+        break;
+      case 'date-asc':
+        sorted.sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime());
+        break;
     }
     
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-      }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
+    return sorted;
+  }
+
+  return results;
 });
 
 onMounted(() => {
@@ -48,13 +69,25 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <select 
+            v-model="sortOrder" 
+            class="sort-select"
+          >
+            <option value="">Sort by...</option>
+            <option value="name-asc">Title (A-Z)</option>
+            <option value="name-desc">Title (Z-A)</option>
+            <option value="date-desc">Release Date (Newest)</option>
+            <option value="date-asc">Release Date (Oldest)</option>
+          </select>
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
         </div>
       </div>
       
@@ -141,6 +174,32 @@ onMounted(() => {
   height: 4px;
   background: linear-gradient(90deg, #e942ff, #8a42ff);
   border-radius: 2px;
+}
+
+.controls-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sort-select {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.sort-select:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
 }
 
 .search-container {
