@@ -1,45 +1,58 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useSpotifyStore } from '@/stores/spotify';
-import AudiobookCard from '@/components/AudiobookCard.vue';
+import { onMounted, ref, computed } from 'vue'
+import { useSpotifyStore } from '@/stores/spotify'
+import AudiobookCard from '@/components/AudiobookCard.vue'
 
-const spotifyStore = useSpotifyStore();
-const searchQuery = ref('');
+const spotifyStore = useSpotifyStore()
+const searchQuery = ref('')
+const sortOption = ref('name-asc')
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
-  }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+  let filtered = spotifyStore.audiobooks
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim()
+    filtered = spotifyStore.audiobooks.filter((audiobook) => {
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true
       }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+
+      const authorMatch = audiobook.authors.some((author) =>
+        author.name.toLowerCase().includes(query),
+      )
+
+      const narratorMatch = audiobook.narrators?.some((narrator) => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query)
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false
+        }
+        return false
+      })
+
+      return authorMatch || narratorMatch
+    })
+  }
+
+  return [...filtered].sort((a, b) => {
+    switch (sortOption.value) {
+      case 'name-asc':
+        return a.name.localeCompare(b.name)
+      case 'name-desc':
+        return b.name.localeCompare(a.name)
+      case 'date-asc':
+        return new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
+      case 'date-desc':
+        return new Date(b.release_date).getTime() - new Date(a.release_date).getTime()
+      default:
+        return 0
+    }
+  })
+})
 
 onMounted(() => {
-  spotifyStore.fetchAudiobooks();
-});
+  spotifyStore.fetchAudiobooks()
+})
 </script>
 
 <template>
@@ -48,13 +61,24 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="Search titles, authors or narrators..."
+              class="search-input"
+            />
+          </div>
+          <div class="sort-container">
+            <label for="sort-select">Sort by:</label>
+            <select id="sort-select" v-model="sortOption" class="sort-select">
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="date-asc">Release Date (Oldest)</option>
+              <option value="date-desc">Release Date (Newest)</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -143,6 +167,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -163,6 +194,40 @@ onMounted(() => {
 .search-input:focus {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
+}
+
+.sort-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-container label {
+  font-size: 14px;
+  color: #2a2d3e;
+  font-weight: 500;
+}
+
+.sort-select {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 20px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.sort-select:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
+}
+
+.sort-select:hover {
   background: #ffffff;
 }
 
