@@ -20,6 +20,23 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+### Sentry Configuration
+
+This project includes Sentry for error tracking and performance monitoring. To enable Sentry:
+
+1. Copy the example environment file:
+```sh
+cp .env.example .env
+```
+
+2. Update the `.env` file with your Sentry DSN (get it from https://sentry.io):
+```
+VITE_SENTRY_DSN=your-actual-sentry-dsn-here
+VITE_SENTRY_ENVIRONMENT=development
+```
+
+**Note:** Sentry is optional. If no DSN is configured, the application will run normally without error tracking.
+
 ### Compile and Hot-Reload for Development
 
 ```sh
