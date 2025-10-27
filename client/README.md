@@ -20,6 +20,16 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 npm install
 ```
 
+### Environment Configuration
+
+Create a `.env.local` file for local development:
+
+```sh
+cp .env.local.example .env.local
+```
+
+Update the `.env.local` file with your Sentry configuration. See [SENTRY_SETUP.md](SENTRY_SETUP.md) for detailed setup instructions.
+
 ### Compile and Hot-Reload for Development
 
 ```sh
