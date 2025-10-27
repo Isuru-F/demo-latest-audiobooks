@@ -1,21 +1,9 @@
-import './instrument'
-import './assets/main.css'
-
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
 import * as Sentry from '@sentry/vue'
 
-import App from './App.vue'
-import router from './router'
-
-const app = createApp(App)
-const pinia = createPinia()
-
 Sentry.init({
-  app,
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [
-    Sentry.browserTracingIntegration({ router }),
+    Sentry.browserTracingIntegration(),
     Sentry.replayIntegration()
   ],
   tracesSampleRate: import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE
@@ -31,10 +19,3 @@ Sentry.init({
   environment: import.meta.env.MODE || 'development',
   enabled: import.meta.env.PROD
 })
-
-pinia.use(Sentry.createSentryPiniaPlugin())
-
-app.use(pinia)
-app.use(router)
-
-app.mount('#app')
