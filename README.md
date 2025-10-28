@@ -22,6 +22,7 @@ The project consists of two main parts:
 - Modern UI with custom styling
 - Pinia for state management
 - Unit tests with Vitest
+- Sentry integration for error tracking and monitoring
 
 ## Features
 
@@ -72,12 +73,17 @@ The project consists of two main parts:
    npm install
    ```
 
-3. Start the development server:
+3. (Optional) Configure Sentry for error tracking:
+   - Create a `.env.local` file based on `.env.example`
+   - Add your Sentry DSN: `VITE_SENTRY_DSN=your_sentry_dsn_here`
+   - Note: Sentry is disabled in development mode by default
+
+4. Start the development server:
    ```
    npm run dev
    ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+5. Open your browser and navigate to `http://localhost:5173`
 
 ## Testing
 
