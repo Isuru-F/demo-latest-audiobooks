@@ -3,28 +3,48 @@ import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AlbumCard from '@/components/AlbumCard.vue';
 import FeaturedCarousel from '@/components/FeaturedCarousel.vue';
+import type { Album } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortOrder = ref('release-date-desc');
 
 const filteredReleases = computed(() => {
+  let filtered: Album[];
+  
   if (!searchQuery.value.trim()) {
-    return spotifyStore.newReleases;
+    filtered = [...spotifyStore.newReleases];
+  } else {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = spotifyStore.newReleases.filter(album => {
+      // Search by album name
+      if (album.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search by artist name
+      const artistMatch = album.artists.some(artist => 
+        artist.name.toLowerCase().includes(query)
+      );
+      
+      return artistMatch;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.newReleases.filter(album => {
-    // Search by album name
-    if (album.name.toLowerCase().includes(query)) {
-      return true;
+  // Apply sorting
+  return filtered.sort((a, b) => {
+    switch (sortOrder.value) {
+      case 'name-asc':
+        return a.name.localeCompare(b.name);
+      case 'name-desc':
+        return b.name.localeCompare(a.name);
+      case 'release-date-asc':
+        return new Date(a.release_date).getTime() - new Date(b.release_date).getTime();
+      case 'release-date-desc':
+        return new Date(b.release_date).getTime() - new Date(a.release_date).getTime();
+      default:
+        return 0;
     }
-    
-    // Search by artist name
-    const artistMatch = album.artists.some(artist => 
-      artist.name.toLowerCase().includes(query)
-    );
-    
-    return artistMatch;
   });
 });
 
@@ -56,13 +76,23 @@ onMounted(() => {
     <section class="releases">
       <div class="releases-header">
         <h2>Latest Releases</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search albums or artists..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search albums or artists..." 
+              class="search-input"
+            />
+          </div>
+          <div class="sort-container">
+            <select v-model="sortOrder" class="sort-select">
+              <option value="release-date-desc">Release Date (Newest First)</option>
+              <option value="release-date-asc">Release Date (Oldest First)</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -155,6 +185,12 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -176,6 +212,39 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.sort-container {
+  position: relative;
+  width: 250px;
+}
+
+.sort-select {
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%232a2d3e' d='M1.41 0L6 4.59L10.59 0L12 1.41l-6 6l-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 20px center;
+  padding-right: 50px;
+}
+
+.sort-select:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background-color: #ffffff;
+}
+
+.sort-select:hover {
+  background-color: #e8eaf5;
 }
 
 .album-grid {
