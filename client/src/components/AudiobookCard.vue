@@ -406,7 +406,7 @@ const formatNarrators = (narrators: any[]) => {
 .spotify-link {
   display: inline-block;
   padding: 12px 30px;
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: linear-gradient(90deg, #1db954, #169c46);
   color: white;
   border-radius: 25px;
   text-decoration: none;
@@ -417,7 +417,7 @@ const formatNarrators = (narrators: any[]) => {
 
 .spotify-link:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 15px rgba(138, 66, 255, 0.3);
+  box-shadow: 0 8px 15px rgba(29, 185, 84, 0.3);
 }
 
 /* Modal Animation - Using hardware acceleration for smoother animations */
