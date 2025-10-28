@@ -1,45 +1,51 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useSpotifyStore } from '@/stores/spotify';
-import AudiobookCard from '@/components/AudiobookCard.vue';
+import { onMounted, ref, computed } from 'vue'
+import { useSpotifyStore } from '@/stores/spotify'
+import AudiobookCard from '@/components/AudiobookCard.vue'
 
-const spotifyStore = useSpotifyStore();
-const searchQuery = ref('');
+const spotifyStore = useSpotifyStore()
+const searchQuery = ref('')
+const hiddenAudiobookIds = ref<string[]>([])
+
+const hideAudiobook = (id: string) => {
+  hiddenAudiobookIds.value.push(id)
+}
 
 const filteredAudiobooks = computed(() => {
+  let audiobooks = spotifyStore.audiobooks.filter(
+    (audiobook) => !hiddenAudiobookIds.value.includes(audiobook.id)
+  )
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return audiobooks
   }
-  
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
+
+  const query = searchQuery.value.toLowerCase().trim()
+  return audiobooks.filter((audiobook) => {
     if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
+      return true
     }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
+
+    const authorMatch = audiobook.authors.some((author) =>
       author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
+    )
+
+    const narratorMatch = audiobook.narrators?.some((narrator) => {
       if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
+        return narrator.toLowerCase().includes(query)
       } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        return narrator.name ? narrator.name.toLowerCase().includes(query) : false
       }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
-});
+      return false
+    })
+
+    return authorMatch || narratorMatch
+  })
+})
 
 onMounted(() => {
-  spotifyStore.fetchAudiobooks();
-});
+  spotifyStore.fetchAudiobooks()
+})
 </script>
 
 <template>
@@ -69,11 +75,17 @@ onMounted(() => {
       <div v-else>
         <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
         <div v-else class="audiobook-grid">
-          <AudiobookCard 
-            v-for="audiobook in filteredAudiobooks" 
-            :key="audiobook.id" 
-            :audiobook="audiobook" 
-          />
+          <div v-for="audiobook in filteredAudiobooks" :key="audiobook.id" class="audiobook-wrapper">
+            <button
+              class="hide-btn"
+              @click="hideAudiobook(audiobook.id)"
+              aria-label="Hide audiobook"
+              title="Hide this audiobook"
+            >
+              ×
+            </button>
+            <AudiobookCard :audiobook="audiobook" />
+          </div>
         </div>
       </div>
     </section>
@@ -177,6 +189,41 @@ onMounted(() => {
   .audiobook-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+.audiobook-wrapper {
+  position: relative;
+}
+
+.hide-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.audiobook-wrapper:hover .hide-btn {
+  opacity: 1;
+}
+
+.hide-btn:hover {
+  background: rgba(255, 0, 0, 0.9);
+  transform: scale(1.1);
 }
 
 .no-results {
