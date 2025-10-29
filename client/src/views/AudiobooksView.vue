@@ -2,40 +2,60 @@
 import { onMounted, ref, computed } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AudiobookCard from '@/components/AudiobookCard.vue';
+import type { Audiobook } from '@/types/spotify';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortOption = ref('default');
 
 const filteredAudiobooks = computed(() => {
+  let books: Audiobook[] = [];
+  
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    books = spotifyStore.audiobooks;
+  } else {
+    const query = searchQuery.value.toLowerCase().trim();
+    books = spotifyStore.audiobooks.filter(audiobook => {
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-      }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
+  return sortAudiobooks(books);
 });
+
+function sortAudiobooks(books: Audiobook[]): Audiobook[] {
+  const sorted = [...books];
+  
+  switch (sortOption.value) {
+    case 'name-asc':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+    case 'name-desc':
+      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    case 'date-asc':
+      return sorted.sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime());
+    case 'date-desc':
+      return sorted.sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime());
+    default:
+      return sorted;
+  }
+}
 
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
@@ -48,13 +68,24 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="sort-container">
+            <select v-model="sortOption" class="sort-select">
+              <option value="default">Default Order</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="date-asc">Release Date (Oldest First)</option>
+              <option value="date-desc">Release Date (Newest First)</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -143,9 +174,17 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
-  width: 300px;
+  min-width: 250px;
+  flex: 1;
 }
 
 .search-input {
@@ -161,6 +200,33 @@ onMounted(() => {
 }
 
 .search-input:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background: #ffffff;
+}
+
+.sort-container {
+  position: relative;
+}
+
+.sort-select {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.sort-select:hover {
+  background: #e8eaf5;
+}
+
+.sort-select:focus {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
