@@ -5,14 +5,30 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const multiCastOnly = ref(localStorage.getItem('multiCastOnly') === 'true');
+
+const isMultiCast = (audiobook: any): boolean => {
+  return audiobook.narrators && audiobook.narrators.length > 1;
+};
+
+const toggleMultiCast = () => {
+  multiCastOnly.value = !multiCastOnly.value;
+  localStorage.setItem('multiCastOnly', String(multiCastOnly.value));
+};
 
 const filteredAudiobooks = computed(() => {
+  let books = spotifyStore.audiobooks;
+  
+  if (multiCastOnly.value) {
+    books = books.filter(audiobook => isMultiCast(audiobook));
+  }
+  
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return books;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return books.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -48,13 +64,23 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="filter-controls">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <button 
+            @click="toggleMultiCast"
+            :class="['toggle-button', { active: multiCastOnly }]"
+            :aria-pressed="multiCastOnly"
+          >
+            <span class="toggle-icon">🎭</span>
+            Multi-Cast Only
+          </button>
         </div>
       </div>
       
@@ -67,7 +93,9 @@ onMounted(() => {
         <button @click="spotifyStore.fetchAudiobooks()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredAudiobooks.length === 0" class="no-results">No audiobooks match your search.</p>
+        <p v-if="filteredAudiobooks.length === 0" class="no-results">
+          {{ multiCastOnly ? 'No multi-cast audiobooks match your criteria.' : 'No audiobooks match your search.' }}
+        </p>
         <div v-else class="audiobook-grid">
           <AudiobookCard 
             v-for="audiobook in filteredAudiobooks" 
@@ -143,6 +171,13 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.filter-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +199,45 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 30px;
+  background: #ffffff;
+  color: #5a5a5a;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.toggle-button:hover {
+  border-color: #8a42ff;
+  color: #8a42ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(138, 66, 255, 0.15);
+}
+
+.toggle-button.active {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.3);
+}
+
+.toggle-button.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(138, 66, 255, 0.4);
+}
+
+.toggle-icon {
+  font-size: 18px;
 }
 
 .audiobook-grid {
