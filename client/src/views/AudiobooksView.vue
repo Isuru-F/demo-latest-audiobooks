@@ -204,40 +204,85 @@ onMounted(() => {
 .toggle-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 30px;
+  gap: 10px;
+  padding: 14px 24px;
+  border: 2px solid transparent;
+  border-radius: 50px;
   background: #ffffff;
-  color: #5a5a5a;
+  color: #6b7280;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.toggle-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50px;
+  padding: 2px;
+  background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 1;
+  transition: opacity 0.4s ease;
 }
 
 .toggle-button:hover {
-  border-color: #8a42ff;
-  color: #8a42ff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(138, 66, 255, 0.15);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.toggle-button:hover::before {
+  background: linear-gradient(135deg, #ff0080, #ff8c00, #ffd700, #00ff00, #00bfff, #8a2be2);
+  opacity: 0.6;
 }
 
 .toggle-button.active {
-  background: linear-gradient(90deg, #e942ff, #8a42ff);
+  background: linear-gradient(135deg, #ff0080, #ff8c00, #ffd700, #00ff00, #00bfff, #8a2be2);
   color: white;
   border-color: transparent;
-  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(255, 0, 128, 0.4), 0 0 40px rgba(255, 140, 0, 0.3);
+  animation: rainbow-pulse 3s ease-in-out infinite;
+}
+
+.toggle-button.active::before {
+  opacity: 0;
 }
 
 .toggle-button.active:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(138, 66, 255, 0.4);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(255, 0, 128, 0.5), 0 0 60px rgba(255, 140, 0, 0.4);
 }
 
 .toggle-icon {
-  font-size: 18px;
+  font-size: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.toggle-button.active .toggle-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: icon-bounce 0.6s ease-in-out;
+}
+
+@keyframes rainbow-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(255, 0, 128, 0.4), 0 0 40px rgba(255, 140, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(138, 43, 226, 0.4), 0 0 40px rgba(0, 191, 255, 0.3);
+  }
+}
+
+@keyframes icon-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2) rotate(5deg); }
 }
 
 .audiobook-grid {
