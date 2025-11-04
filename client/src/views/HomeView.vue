@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useSpotifyStore } from '@/stores/spotify';
 import AlbumCard from '@/components/AlbumCard.vue';
 import FeaturedCarousel from '@/components/FeaturedCarousel.vue';
@@ -7,13 +7,25 @@ import FeaturedCarousel from '@/components/FeaturedCarousel.vue';
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
 
+const multiCastOnly = ref(localStorage.getItem('multiCastOnly') === 'true');
+
+watch(multiCastOnly, (newValue) => {
+  localStorage.setItem('multiCastOnly', String(newValue));
+});
+
 const filteredReleases = computed(() => {
+  let results = spotifyStore.newReleases;
+  
+  if (multiCastOnly.value) {
+    results = results.filter(album => album.artists.length > 1);
+  }
+  
   if (!searchQuery.value.trim()) {
-    return spotifyStore.newReleases;
+    return results;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.newReleases.filter(album => {
+  return results.filter(album => {
     // Search by album name
     if (album.name.toLowerCase().includes(query)) {
       return true;
@@ -56,13 +68,26 @@ onMounted(() => {
     <section class="releases">
       <div class="releases-header">
         <h2>Latest Releases</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search albums or artists..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="toggle-container">
+            <label class="toggle-label">
+              <input 
+                type="checkbox" 
+                v-model="multiCastOnly" 
+                class="toggle-checkbox"
+              />
+              <span class="toggle-switch"></span>
+              <span class="toggle-text">Multi-Cast Only</span>
+            </label>
+          </div>
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search albums or artists..." 
+              class="search-input"
+            />
+          </div>
         </div>
       </div>
       
@@ -75,7 +100,13 @@ onMounted(() => {
         <button @click="spotifyStore.fetchNewReleases()">Try Again</button>
       </div>
       <div v-else>
-        <p v-if="filteredReleases.length === 0" class="no-results">No albums match your search.</p>
+        <p v-if="filteredReleases.length === 0" class="no-results">
+          {{ multiCastOnly && searchQuery 
+            ? 'No multi-cast albums match your search.' 
+            : multiCastOnly 
+              ? 'No multi-cast albums found.' 
+              : 'No albums match your search.' }}
+        </p>
         <div v-else class="album-grid">
           <AlbumCard 
             v-for="album in filteredReleases" 
@@ -136,6 +167,13 @@ onMounted(() => {
   gap: 20px;
 }
 
+.controls-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .featured h2, .releases h2 {
   font-size: 32px;
   color: #2a2d3e;
@@ -153,6 +191,59 @@ onMounted(() => {
   height: 4px;
   background: linear-gradient(90deg, #e942ff, #8a42ff);
   border-radius: 2px;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  display: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: #e0e0e0;
+  border-radius: 12px;
+  transition: background 0.3s ease;
+}
+
+.toggle-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked + .toggle-switch {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+.toggle-checkbox:checked + .toggle-switch::before {
+  transform: translateX(24px);
+}
+
+.toggle-text {
+  font-size: 16px;
+  color: #2a2d3e;
+  font-weight: 500;
 }
 
 .search-container {
