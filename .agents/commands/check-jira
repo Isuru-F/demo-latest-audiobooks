@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+const ticketKey = process.argv[2];
+
+if (!ticketKey) {
+  console.error('Usage: /check-jira TICKET-KEY');
+  console.error('Example: /check-jira KAN-1');
+  process.exit(1);
+}
+
+console.log(`Fetching Jira ticket ${ticketKey}...`);
+console.log(`Use the tb__jira_tool with operation "get" and ticket_key "${ticketKey}" to retrieve the ticket details.`);
