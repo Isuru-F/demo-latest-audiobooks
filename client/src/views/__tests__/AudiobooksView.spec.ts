@@ -43,4 +43,18 @@ describe('AudiobooksView', () => {
     // Simply verify the setValue function works
     expect(wrapper.find('.search-input').exists()).toBe(true)
   })
+
+  it('has sort dropdown functionality', async () => {
+    setActivePinia(createPinia())
+    const wrapper = mount(AudiobooksView)
+    
+    const sortSelect = wrapper.find('.sort-select')
+    expect(sortSelect.exists()).toBe(true)
+    
+    await sortSelect.setValue('name-asc')
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('name-asc')
+    
+    await sortSelect.setValue('date-desc')
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('date-desc')
+  })
 })
