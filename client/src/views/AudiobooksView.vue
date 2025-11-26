@@ -5,36 +5,65 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const sortOption = ref('name-asc');
 
 const filteredAudiobooks = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+  let results = spotifyStore.audiobooks;
+  
+  // Apply search filter
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    results = results.filter(audiobook => {
+      // Search by audiobook name
+      if (audiobook.name.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search by author name
+      const authorMatch = audiobook.authors.some(author => 
+        author.name.toLowerCase().includes(query)
+      );
+      
+      // Search by narrator
+      const narratorMatch = audiobook.narrators?.some(narrator => {
+        if (typeof narrator === 'string') {
+          return narrator.toLowerCase().includes(query);
+        } else if (narrator && typeof narrator === 'object') {
+          return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
+        }
+        return false;
+      });
+      
+      return authorMatch || narratorMatch;
+    });
   }
   
-  const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
-    // Search by audiobook name
-    if (audiobook.name.toLowerCase().includes(query)) {
-      return true;
-    }
-    
-    // Search by author name
-    const authorMatch = audiobook.authors.some(author => 
-      author.name.toLowerCase().includes(query)
-    );
-    
-    // Search by narrator
-    const narratorMatch = audiobook.narrators?.some(narrator => {
-      if (typeof narrator === 'string') {
-        return narrator.toLowerCase().includes(query);
-      } else if (narrator && typeof narrator === 'object') {
-        return narrator.name ? narrator.name.toLowerCase().includes(query) : false;
-      }
-      return false;
-    });
-    
-    return authorMatch || narratorMatch;
-  });
+  // Apply sorting
+  const sorted = [...results];
+  switch (sortOption.value) {
+    case 'name-asc':
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'name-desc':
+      sorted.sort((a, b) => b.name.localeCompare(a.name));
+      break;
+    case 'date-asc':
+      sorted.sort((a, b) => {
+        const dateA = a.release_date ? new Date(a.release_date).getTime() : 0;
+        const dateB = b.release_date ? new Date(b.release_date).getTime() : 0;
+        return dateA - dateB;
+      });
+      break;
+    case 'date-desc':
+      sorted.sort((a, b) => {
+        const dateA = a.release_date ? new Date(a.release_date).getTime() : 0;
+        const dateB = b.release_date ? new Date(b.release_date).getTime() : 0;
+        return dateB - dateA;
+      });
+      break;
+  }
+  
+  return sorted;
 });
 
 onMounted(() => {
@@ -48,13 +77,26 @@ onMounted(() => {
     <section class="audiobooks">
       <div class="audiobooks-header">
         <h2>Latest Audiobooks via Spotify API</h2>
-        <div class="search-container">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Search titles, authors or narrators..." 
-            class="search-input"
-          />
+        <div class="controls-container">
+          <div class="search-container">
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Search titles, authors or narrators..." 
+              class="search-input"
+            />
+          </div>
+          <div class="sort-container">
+            <select 
+              v-model="sortOption" 
+              class="sort-select"
+            >
+              <option value="name-asc">A-Z (Alphabetical)</option>
+              <option value="name-desc">Z-A (Alphabetical)</option>
+              <option value="date-asc">Oldest First (Release Date)</option>
+              <option value="date-desc">Newest First (Release Date)</option>
+            </select>
+          </div>
         </div>
       </div>
       
@@ -143,6 +185,12 @@ onMounted(() => {
   border-radius: 2px;
 }
 
+.controls-container {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
 .search-container {
   position: relative;
   width: 300px;
@@ -164,6 +212,33 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.sort-container {
+  position: relative;
+}
+
+.sort-select {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 30px;
+  background: #f0f2fa;
+  color: #2a2d3e;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232a2d3e' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+}
+
+.sort-select:focus {
+  outline: none;
+  box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
+  background-color: #ffffff;
 }
 
 .audiobook-grid {
