@@ -5,14 +5,24 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const showMultiCastOnly = ref(false);
 
 const filteredAudiobooks = computed(() => {
+  let audiobooks = spotifyStore.audiobooks;
+
+  // Filter by multi-cast if enabled
+  if (showMultiCastOnly.value) {
+    audiobooks = audiobooks.filter(audiobook => 
+      audiobook.narrators && audiobook.narrators.length > 1
+    );
+  }
+
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return audiobooks;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return audiobooks.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -55,6 +65,14 @@ onMounted(() => {
             placeholder="Search titles, authors or narrators..." 
             class="search-input"
           />
+        </div>
+        
+        <div class="toggle-container">
+          <label class="switch">
+            <input type="checkbox" v-model="showMultiCastOnly">
+            <span class="slider round"></span>
+          </label>
+          <span class="toggle-label">Multi-Cast Only</span>
         </div>
       </div>
       
@@ -164,6 +182,72 @@ onMounted(() => {
   outline: none;
   box-shadow: 0 4px 15px rgba(138, 66, 255, 0.2);
   background: #ffffff;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-label {
+  color: #2a2d3e;
+  font-weight: 500;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background: linear-gradient(90deg, #e942ff, #8a42ff);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #8a42ff;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
 }
 
 .audiobook-grid {
