@@ -5,14 +5,17 @@ import AudiobookCard from '@/components/AudiobookCard.vue';
 
 const spotifyStore = useSpotifyStore();
 const searchQuery = ref('');
+const hiddenAudiobookIds = ref<Set<string>>(new Set());
 
 const filteredAudiobooks = computed(() => {
+  let books = spotifyStore.audiobooks.filter(audiobook => !hiddenAudiobookIds.value.has(audiobook.id));
+  
   if (!searchQuery.value.trim()) {
-    return spotifyStore.audiobooks;
+    return books;
   }
   
   const query = searchQuery.value.toLowerCase().trim();
-  return spotifyStore.audiobooks.filter(audiobook => {
+  return books.filter(audiobook => {
     // Search by audiobook name
     if (audiobook.name.toLowerCase().includes(query)) {
       return true;
@@ -36,6 +39,10 @@ const filteredAudiobooks = computed(() => {
     return authorMatch || narratorMatch;
   });
 });
+
+const handleHideAudiobook = (audiobookId: string) => {
+  hiddenAudiobookIds.value.add(audiobookId);
+};
 
 onMounted(() => {
   spotifyStore.fetchAudiobooks();
@@ -73,6 +80,7 @@ onMounted(() => {
             v-for="audiobook in filteredAudiobooks" 
             :key="audiobook.id" 
             :audiobook="audiobook" 
+            @hide="handleHideAudiobook(audiobook.id)"
           />
         </div>
       </div>
