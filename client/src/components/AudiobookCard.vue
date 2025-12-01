@@ -6,6 +6,10 @@ const props = defineProps<{
   audiobook: Audiobook
 }>();
 
+const emit = defineEmits<{
+  hide: []
+}>();
+
 const showModal = ref(false);
 
 // Use a separate function to open the modal
@@ -77,10 +81,17 @@ const formatNarrators = (narrators: any[]) => {
     return 'Narrator';
   }).join(', ');
 };
+
+const handleHide = (event: Event) => {
+  event.stopPropagation();
+  event.preventDefault();
+  emit('hide');
+};
 </script>
 
 <template>
   <div class="audiobook-card">
+    <button class="hide-btn" @click="handleHide" aria-label="Hide audiobook">×</button>
     <div class="audiobook-image" @click.stop="toggleModal">
       <img v-if="audiobook.images && audiobook.images.length" :src="audiobook.images[0].url" :alt="audiobook.name" />
       <div v-else class="no-image">No Image</div>
@@ -151,6 +162,36 @@ const formatNarrators = (narrators: any[]) => {
 .audiobook-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+.hide-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+  z-index: 10;
+  padding: 0;
+  line-height: 1;
+}
+
+.audiobook-card:hover .hide-btn {
+  opacity: 1;
+}
+
+.hide-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
 }
 
 .audiobook-image {
