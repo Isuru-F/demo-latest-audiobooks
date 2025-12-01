@@ -47,7 +47,7 @@ export const useSpotifyStore = defineStore('spotify', () => {
     error.value = null;
     try {
       // Use hardcoded data for demo purposes
-      const data = hardcodedAudiobooksResponse as AudiobooksResponse;
+      const data = hardcodedAudiobooksResponse as any;
       audiobooks.value = data.audiobooks.items;
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch audiobooks';
